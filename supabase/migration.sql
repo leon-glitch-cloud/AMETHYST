@@ -141,6 +141,6 @@ alter table material_orders enable row level security;
 alter table bead_returns enable row level security;
 alter table bead_return_items enable row level security;
 
--- Storage-Buckets bitte manuell im Dashboard anlegen (Storage → New bucket,
--- jeweils "Private"): bracelet-photos, bead-photos, material-order-uploads.
--- Siehe SETUP.md.
+-- Storage-Buckets bitte manuell im Dashboard anlegen (Storage → New bucket):
+-- bracelet-photos (Public), bead-photos (Public), material-order-uploads
+-- (Private). Siehe SETUP.md.

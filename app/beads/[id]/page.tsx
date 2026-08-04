@@ -1,0 +1,141 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { updateBead, deleteBead } from "@/app/beads/actions";
+import { Field } from "@/app/beads/_components/field";
+import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
+
+type Bead = {
+  id: string;
+  article_number: string;
+  image_url: string | null;
+  size_mm: number | string | null;
+  color: string | null;
+  unit_price: number | string | null;
+  source_shop: string | null;
+  source_url: string | null;
+  stock_count: number;
+};
+
+async function getBead(id: string): Promise<Bead | null> {
+  try {
+    const supabase = createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("beads")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export default async function BeadDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { id } = await params;
+  const { error } = await searchParams;
+  const bead = await getBead(id);
+
+  if (!bead) {
+    notFound();
+  }
+
+  const updateBeadWithId = updateBead.bind(null, id);
+  const deleteBeadWithId = deleteBead.bind(null, id);
+
+  return (
+    <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <h1 className="mb-6 text-2xl font-medium text-gray-900">
+        Perle bearbeiten
+      </h1>
+
+      <form action={updateBeadWithId} className="space-y-4">
+        <Field
+          label="Artikelnummer"
+          name="article_number"
+          defaultValue={bead.article_number}
+          required
+        />
+
+        <div>
+          <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
+            Referenzfoto{bead.image_url ? " (ersetzen)" : ""}
+          </label>
+          <input
+            id="photo"
+            name="photo"
+            type="file"
+            accept="image/*"
+            className="block w-full text-sm text-gray-600"
+          />
+        </div>
+
+        <Field
+          label="Größe (mm)"
+          name="size_mm"
+          type="number"
+          step="0.1"
+          defaultValue={bead.size_mm ?? undefined}
+        />
+        <Field label="Farbe" name="color" defaultValue={bead.color ?? undefined} />
+        <Field
+          label="Preis (€)"
+          name="unit_price"
+          type="number"
+          step="0.01"
+          defaultValue={bead.unit_price ?? undefined}
+        />
+        <Field
+          label="Shop"
+          name="source_shop"
+          defaultValue={bead.source_shop ?? undefined}
+        />
+        <Field
+          label="Shop-Link"
+          name="source_url"
+          type="url"
+          defaultValue={bead.source_url ?? undefined}
+        />
+        <Field
+          label="Bestandsmenge"
+          name="stock_count"
+          type="number"
+          step="1"
+          defaultValue={bead.stock_count}
+        />
+
+        {error && <p className="text-sm text-gray-500">{error}</p>}
+
+        <div className="flex items-center gap-4 pt-2">
+          <button
+            type="submit"
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+          >
+            Speichern
+          </button>
+          <Link
+            href="/beads"
+            className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
+          >
+            Zurück
+          </Link>
+        </div>
+      </form>
+
+      <div className="mt-8 border-t border-gray-200 pt-4">
+        <ConfirmFormButton
+          action={deleteBeadWithId}
+          label="Perle löschen"
+          confirmMessage="Diese Perle wirklich löschen?"
+        />
+      </div>
+    </main>
+  );
+}

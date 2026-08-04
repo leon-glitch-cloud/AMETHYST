@@ -4,10 +4,12 @@
 
 1. Neues Projekt auf https://supabase.com anlegen.
 2. Im SQL Editor den Inhalt von `supabase/migration.sql` ausführen.
-3. Unter Storage drei **private** Buckets anlegen:
-   - `bracelet-photos`
-   - `bead-photos`
-   - `material-order-uploads`
+3. Unter Storage drei Buckets anlegen:
+   - `bracelet-photos` – **Public** (unkritische Produktfotos, einfaches
+     Anzeigen ohne signierte URLs)
+   - `bead-photos` – **Public** (gleicher Grund)
+   - `material-order-uploads` – **Private** (können Bestelldokumente
+     enthalten)
 4. Unter Project Settings → API: `Project URL` und den `service_role`-Key
    kopieren (service_role, **nicht** anon/public – wird nur server-seitig
    verwendet und nie an den Browser geschickt).
