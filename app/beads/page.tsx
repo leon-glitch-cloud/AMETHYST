@@ -25,6 +25,12 @@ export default async function BeadsPage() {
         <h1 className="text-2xl font-medium text-gray-900">Perlenbestand</h1>
         <div className="flex items-center gap-3">
           <Link
+            href="/beads/import"
+            className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
+          >
+            Bestellliste importieren
+          </Link>
+          <Link
             href="/beads/return"
             className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
           >

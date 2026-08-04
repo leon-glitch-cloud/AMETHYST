@@ -9,3 +9,21 @@ export function createClaudeClient(): Anthropic {
 
   return new Anthropic({ apiKey });
 }
+
+export type ImageMediaType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/gif"
+  | "image/webp";
+
+export function toImageMediaType(mimeType: string): ImageMediaType {
+  if (
+    mimeType === "image/jpeg" ||
+    mimeType === "image/png" ||
+    mimeType === "image/gif" ||
+    mimeType === "image/webp"
+  ) {
+    return mimeType;
+  }
+  return "image/jpeg";
+}

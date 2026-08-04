@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createSaleTransaction } from "@/lib/sales";
-import { createClaudeClient } from "@/lib/claude";
+import { createClaudeClient, toImageMediaType } from "@/lib/claude";
 
 function parseBeadItems(
   formData: FormData
@@ -279,27 +279,17 @@ const BEAD_SUGGESTION_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-
 type SuggestionContentBlock =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "url"; url: string } }
   | {
       type: "image";
-      source: { type: "base64"; media_type: ImageMediaType; data: string };
+      source: {
+        type: "base64";
+        media_type: ReturnType<typeof toImageMediaType>;
+        data: string;
+      };
     };
-
-function toImageMediaType(mimeType: string): ImageMediaType {
-  if (
-    mimeType === "image/jpeg" ||
-    mimeType === "image/png" ||
-    mimeType === "image/gif" ||
-    mimeType === "image/webp"
-  ) {
-    return mimeType;
-  }
-  return "image/jpeg";
-}
 
 export async function suggestBeadsFromPhoto(
   formData: FormData
