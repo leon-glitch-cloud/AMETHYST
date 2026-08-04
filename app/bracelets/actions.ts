@@ -3,18 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
-
-function parseNumber(value: FormDataEntryValue | null): number | null {
-  if (typeof value !== "string" || value.trim() === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function parseText(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
+import { parseNumber, parseText } from "@/lib/forms";
 
 function parseBeadItems(
   formData: FormData
@@ -224,6 +213,66 @@ export async function returnLoan(loanId: string, braceletId: string) {
     redirect(
       `/bracelets/${braceletId}?error=${encodeURIComponent(
         "Rückgabe konnte nicht gespeichert werden"
+      )}`
+    );
+  }
+
+  redirect(`/bracelets/${braceletId}`);
+}
+
+export async function recordSale(braceletId: string, formData: FormData) {
+  const buyerName = parseText(formData.get("buyer_name"));
+  if (!buyerName) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent("Käufer ist erforderlich")}`
+    );
+  }
+
+  const isGift = formData.get("is_gift") === "yes";
+  const price = isGift ? 0 : (parseNumber(formData.get("price")) ?? 0);
+
+  const supabase = createSupabaseServerClient();
+
+  const { data: bracelet } = await supabase
+    .from("bracelets")
+    .select("name")
+    .eq("id", braceletId)
+    .maybeSingle();
+
+  const { data: transactionRow, error: transactionError } = await supabase
+    .from("transactions")
+    .insert({
+      date: new Date().toISOString().slice(0, 10),
+      type: "sale",
+      description: `Verkauf: ${bracelet?.name ?? "Armband"}`,
+      amount: price,
+      bracelet_id: braceletId,
+      counterparty_name: buyerName,
+    })
+    .select("id")
+    .single();
+
+  if (transactionError || !transactionRow) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Verkauf konnte nicht gespeichert werden"
+      )}`
+    );
+  }
+
+  const { error: saleError } = await supabase.from("sales").insert({
+    bracelet_id: braceletId,
+    buyer_name: buyerName,
+    price,
+    is_gift: isGift,
+    transaction_id: transactionRow.id,
+  });
+
+  if (saleError) {
+    await supabase.from("transactions").delete().eq("id", transactionRow.id);
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Verkauf konnte nicht gespeichert werden"
       )}`
     );
   }

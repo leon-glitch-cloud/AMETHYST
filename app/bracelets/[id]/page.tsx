@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   recordLoan,
   returnLoan,
+  recordSale,
   deleteBracelet,
 } from "@/app/bracelets/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
@@ -35,6 +36,7 @@ type Sale = {
   buyer_name: string;
   price: number | string;
   is_gift: boolean;
+  transaction_id: string | null;
 };
 
 type Loan = {
@@ -116,7 +118,7 @@ async function getSales(id: string): Promise<Sale[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("sales")
-      .select("id, sale_date, buyer_name, price, is_gift")
+      .select("id, sale_date, buyer_name, price, is_gift, transaction_id")
       .eq("bracelet_id", id)
       .order("sale_date", { ascending: false });
     if (error || !data) return [];
@@ -188,6 +190,7 @@ export default async function BraceletDetailPage({
   const inStock = bracelet.made_count - counters.sold - counters.loaned;
 
   const recordLoanWithId = recordLoan.bind(null, id);
+  const recordSaleWithId = recordSale.bind(null, id);
   const deleteBraceletWithId = deleteBracelet.bind(null, id);
 
   return (
@@ -248,6 +251,8 @@ export default async function BraceletDetailPage({
         </div>
       </div>
 
+      {error && <p className="mb-6 text-sm text-gray-500">{error}</p>}
+
       <section className="mb-8">
         <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
           Verwendete Perlen
@@ -294,6 +299,43 @@ export default async function BraceletDetailPage({
           </ul>
         </section>
       )}
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
+          Verkauf erfassen
+        </h2>
+        <form action={recordSaleWithId} className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              name="buyer_name"
+              type="text"
+              placeholder="Käufer"
+              required
+              className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+            />
+            <input
+              name="price"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Preis (€)"
+              className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              <input type="checkbox" name="is_gift" value="yes" />
+              Geschenk (kein Geld erhalten)
+            </label>
+            <button
+              type="submit"
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+            >
+              Verkauf speichern
+            </button>
+          </div>
+        </form>
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
@@ -367,20 +409,36 @@ export default async function BraceletDetailPage({
           <p className="text-sm text-gray-500">Keine Verkäufe.</p>
         ) : (
           <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
-            {sales.map((sale) => (
-              <li
-                key={sale.id}
-                className="flex items-center justify-between px-4 py-3 text-sm"
-              >
-                <span className="text-gray-700">
-                  {formatDate(sale.sale_date)} · {sale.buyer_name}
-                  {sale.is_gift ? " (Geschenk)" : ""}
-                </span>
-                <span className="text-gray-500">
-                  {currencyFormatter.format(Number(sale.price))}
-                </span>
-              </li>
-            ))}
+            {sales.map((sale) => {
+              const row = (
+                <>
+                  <span className="text-gray-700">
+                    {formatDate(sale.sale_date)} · {sale.buyer_name}
+                    {sale.is_gift ? " (Geschenk)" : ""}
+                  </span>
+                  <span className="text-gray-500">
+                    {currencyFormatter.format(Number(sale.price))}
+                  </span>
+                </>
+              );
+
+              return (
+                <li key={sale.id}>
+                  {sale.transaction_id ? (
+                    <Link
+                      href={`/transactions#tx-${sale.transaction_id}`}
+                      className="flex items-center justify-between px-4 py-3 text-sm transition hover:bg-gray-50"
+                    >
+                      {row}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center justify-between px-4 py-3 text-sm">
+                      {row}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

@@ -1,0 +1,39 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { parseNumber, parseText } from "@/lib/forms";
+
+export async function createExpense(formData: FormData) {
+  const description = parseText(formData.get("description"));
+  if (!description) {
+    redirect(
+      `/transactions?error=${encodeURIComponent("Beschreibung ist erforderlich")}`
+    );
+  }
+
+  const amount = parseNumber(formData.get("amount"));
+  if (amount === null || amount <= 0) {
+    redirect(
+      `/transactions?error=${encodeURIComponent("Betrag muss größer als 0 sein")}`
+    );
+  }
+
+  const date = parseText(formData.get("date")) ?? new Date().toISOString().slice(0, 10);
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("transactions").insert({
+    date,
+    type: "expense",
+    description,
+    amount: -Math.abs(amount),
+  });
+
+  if (error) {
+    redirect(
+      `/transactions?error=${encodeURIComponent("Ausgabe konnte nicht gespeichert werden")}`
+    );
+  }
+
+  redirect("/transactions");
+}
