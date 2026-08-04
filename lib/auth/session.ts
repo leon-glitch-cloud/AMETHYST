@@ -1,4 +1,4 @@
-const COOKIE_NAME = "lucika_session";
+const COOKIE_NAME = "amethyst_session";
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 function getSecret(): string {

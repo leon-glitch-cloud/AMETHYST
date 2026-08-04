@@ -1,4 +1,4 @@
-# Lucika – Internes Verwaltungstool (Armbandbusiness)
+# Amethyst – Internes Verwaltungstool für LUCICA (Armbandbusiness)
 
 ## Zweck
 Internes Arbeitstool für unser Armband-/Schmuckbusiness. Verwaltung von

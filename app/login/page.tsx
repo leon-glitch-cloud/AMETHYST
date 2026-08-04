@@ -37,7 +37,7 @@ export default async function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
         <h1 className="mb-8 text-center text-xl font-medium text-gray-900">
-          Lucika
+          Amethyst
         </h1>
         <form action={login} className="space-y-4">
           <div>

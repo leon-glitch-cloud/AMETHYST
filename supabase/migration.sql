@@ -1,4 +1,4 @@
--- Lucika – Datenbankschema
+-- Lucica – Datenbankschema
 -- Im Supabase SQL Editor eines neuen Projekts ausführen.
 --
 -- Zugriff erfolgt ausschließlich server-seitig über den Service-Role-Key

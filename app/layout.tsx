@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -13,8 +13,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lucika",
-  description: "Internes Verwaltungstool für Armband- und Perlenbestand",
+  title: "Amethyst",
+  description:
+    "Internes Verwaltungstool für Armband- und Perlenbestand (LUCICA)",
+  appleWebApp: {
+    capable: true,
+    title: "Amethyst",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
