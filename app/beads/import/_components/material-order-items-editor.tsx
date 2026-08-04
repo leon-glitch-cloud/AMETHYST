@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 export type MaterialOrderItem = {
   article_number: string;
@@ -9,6 +10,7 @@ export type MaterialOrderItem = {
   unit_price: number | null;
   shop: string | null;
   quantity: number;
+  image_url: string | null;
 };
 
 type Row = {
@@ -19,6 +21,7 @@ type Row = {
   unitPrice: string;
   shop: string;
   quantity: string;
+  imageUrl: string;
 };
 
 function itemToRow(item: MaterialOrderItem): Row {
@@ -30,6 +33,7 @@ function itemToRow(item: MaterialOrderItem): Row {
     unitPrice: item.unit_price != null ? String(item.unit_price) : "",
     shop: item.shop ?? "",
     quantity: String(item.quantity),
+    imageUrl: item.image_url ?? "",
   };
 }
 
@@ -51,6 +55,7 @@ export function MaterialOrderItemsEditor({
         unitPrice: "",
         shop: "",
         quantity: "1",
+        imageUrl: "",
       },
     ]);
   }
@@ -78,6 +83,16 @@ export function MaterialOrderItemsEditor({
             className="rounded-md border border-gray-200 p-3"
           >
             <div className="mb-2 flex items-center gap-2">
+              {row.imageUrl && (
+                <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-gray-100">
+                  <Image
+                    src={row.imageUrl}
+                    alt={row.articleNumber || "Erkanntes Foto"}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
               <input
                 name="article_number"
                 type="text"
@@ -89,6 +104,7 @@ export function MaterialOrderItemsEditor({
                 required
                 className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               />
+              <input type="hidden" name="image_url" value={row.imageUrl} />
               <button
                 type="button"
                 onClick={() => removeRow(row.key)}

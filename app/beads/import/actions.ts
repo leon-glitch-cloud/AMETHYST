@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { uploadPrivateFile } from "@/lib/supabase/storage";
+import { uploadPrivateFile, uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createClaudeClient, toImageMediaType } from "@/lib/claude";
 
@@ -13,6 +13,7 @@ type ExtractedItem = {
   unit_price: number | null;
   shop: string | null;
   quantity: number;
+  image_url: string | null;
 };
 
 const MATERIAL_ORDER_SCHEMA = {
@@ -137,13 +138,105 @@ export async function createMaterialOrderUpload(formData: FormData) {
       throw new Error("no-text");
     }
 
-    items = (JSON.parse(textBlock.text) as { items: ExtractedItem[] }).items;
+    const parsed = JSON.parse(textBlock.text) as {
+      items: Omit<ExtractedItem, "image_url">[];
+    };
+    items = parsed.items.map((item) => ({ ...item, image_url: null }));
   } catch {
     redirect(
       `/beads/import?error=${encodeURIComponent(
         "Bestellliste konnte nicht analysiert werden"
       )}`
     );
+  }
+
+  // Bilder aus der Datei ausschneiden (falls vorhanden) — rein optional,
+  // schlägt dieser Block fehl, bleiben die image_url-Felder einfach leer.
+  try {
+    const articleNumbers = items.map((item) => item.article_number);
+    if (articleNumbers.length > 0) {
+      const client = createClaudeClient();
+      const uploaded = await client.beta.files.upload({
+        file,
+        betas: ["files-api-2025-04-14"],
+      });
+
+      const codeResponse = await client.messages.create(
+        {
+          model: "claude-opus-5",
+          max_tokens: 4096,
+          tools: [{ type: "code_execution_20260521", name: "code_execution" }],
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Die angehängte Datei ist eine Bestellbestätigung/Materialliste für folgende Artikelnummern: ${articleNumbers.join(
+                    ", "
+                  )}. Prüfe, ob zu einzelnen Artikelnummern ein Produktfoto in der Datei enthalten ist. Falls ja, schneide es aus und speichere es exakt als "<Artikelnummer>.png" (z. B. "${articleNumbers[0]}.png"). Erstelle keine Datei für Artikelnummern ohne erkennbares Foto.`,
+                },
+                { type: "container_upload", file_id: uploaded.id },
+              ],
+            },
+          ],
+        },
+        { headers: { "anthropic-beta": "files-api-2025-04-14" } }
+      );
+
+      const itemsByArticleNumber = new Map(
+        items.map((item) => [item.article_number.toLowerCase(), item])
+      );
+
+      for (const block of codeResponse.content as Array<{
+        type: string;
+        content?: unknown;
+      }>) {
+        if (block.type !== "bash_code_execution_tool_result") continue;
+
+        const result = block.content as
+          | { type: string; content?: Array<{ type: string; file_id?: string }> }
+          | undefined;
+        if (
+          !result ||
+          result.type !== "bash_code_execution_result" ||
+          !result.content
+        ) {
+          continue;
+        }
+
+        for (const fileRef of result.content) {
+          if (fileRef.type !== "bash_code_execution_output" || !fileRef.file_id) {
+            continue;
+          }
+
+          const metadata = await client.beta.files.retrieveMetadata(
+            fileRef.file_id
+          );
+          const baseName = metadata.filename
+            .replace(/\.[^.]+$/, "")
+            .toLowerCase();
+          const matchedItem = itemsByArticleNumber.get(baseName);
+          if (!matchedItem) continue;
+
+          const downloadResponse = await client.beta.files.download(
+            fileRef.file_id
+          );
+          const imageBytes = await downloadResponse.arrayBuffer();
+          const imageFile = new File([imageBytes], metadata.filename, {
+            type: "image/png",
+          });
+          const imageUrl = await uploadPublicImage(
+            "bead-photos",
+            `${matchedItem.article_number}/${metadata.filename}`,
+            imageFile
+          );
+          matchedItem.image_url = imageUrl;
+        }
+      }
+    }
+  } catch {
+    // Bild-Erkennung ist optional, Rest des Flows läuft unverändert weiter.
   }
 
   const id = crypto.randomUUID();
@@ -184,6 +277,7 @@ type MaterialOrderRow = {
   unit_price: number | null;
   source_shop: string | null;
   quantity: number;
+  image_url: string | null;
 };
 
 function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
@@ -193,6 +287,7 @@ function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
   const prices = formData.getAll("unit_price");
   const shops = formData.getAll("source_shop");
   const quantities = formData.getAll("quantity");
+  const imageUrls = formData.getAll("image_url");
 
   const rows: MaterialOrderRow[] = [];
 
@@ -204,6 +299,7 @@ function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
 
     rows.push({
       article_number: articleNumber,
+      image_url: parseText(imageUrls[index] ?? null),
       color: parseText(colors[index] ?? null),
       size_mm: parseNumber(sizes[index] ?? null),
       unit_price: parseNumber(prices[index] ?? null),
@@ -251,6 +347,7 @@ export async function confirmMaterialOrder(
         unit_price: row.unit_price ?? 0,
         source_shop: row.source_shop,
         stock_count: row.quantity,
+        image_url: row.image_url,
       });
     }
   }

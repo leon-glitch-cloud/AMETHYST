@@ -159,13 +159,28 @@ Durchsuchbare Übersicht aller Perlen/Materialien.
 - Gegenstück zur Materialbestellung: Bestellung = Bestand rauf, Geld raus;
   Rücksendung = Bestand runter, Geld rein.
 
+**Foto pro Perle (manuell hinzufügen):**
+- Bestelllisten enthalten MEISTENS keine Bilder – die liefern oft nur Nummer, Größe,
+  Preis, Shop. (Wenn doch Bilder dabei sind, werden sie beim Upload automatisch
+  übernommen – siehe Funktionsbereich Upload.) Das Foto ist aber entscheidend, weil
+  eine leere Perle später über ihr Aussehen wiedergefunden werden muss (man kennt
+  Aussehen + Größe, sucht Nummer + Bezugsquelle).
+- Deshalb: In der Perlen-Detailansicht gibt es die Option „Foto hinzufügen". Der
+  Nutzer kann direkt per **Kamera** ein Foto aufnehmen oder eine **Datei hochladen**.
+- Das Foto ist ein normales Feld an der Perle (image_url), jederzeit ergänz-/ersetzbar.
+- Dieses Foto dient zugleich als Referenzbild für die KI-Armbanderkennung
+  (Funktionsbereich 1).
+
 **Suche/Filter:** Nach Nummer, Farbe, Größe suchen. Ziel: „Perle ist alle" →
 schnell finden, wo und zu welchem Preis nachbestellt werden kann.
 
 **Upload von Bestelllisten (halbautomatisch):**
 - Nutzer lädt Bestellbestätigung/Materialliste hoch (PDF, Screenshot, Bild – Formate gemischt).
 - Datei geht an Claude API (Vision/PDF-Fähigkeit), die die enthaltenen Positionen
-  ausliest: Nummer, Bild-Referenz falls vorhanden, Größe, Farbe, Preis, Shop.
+  ausliest: Nummer, Größe, Farbe, Preis, Shop. **Falls die Liste Bilder enthält,
+  werden diese automatisch mit übernommen.** Oft enthalten Listen aber keine Bilder –
+  dann bleibt das Foto-Feld leer und wird später manuell an der Perle ergänzt
+  (siehe oben).
 - Ergebnis wird als **vorausgefülltes, editierbares Formular** angezeigt.
 - Nutzer prüft/korrigiert und bestätigt → dann werden die Positionen in den
   Materialbestand übernommen (neu angelegt oder Bestand erhöht, wenn Nummer existiert).
