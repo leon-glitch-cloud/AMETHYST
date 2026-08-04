@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
+import { createSaleTransaction } from "@/lib/sales";
 
 function parseBeadItems(
   formData: FormData
@@ -232,49 +233,22 @@ export async function recordSale(braceletId: string, formData: FormData) {
   const price = isGift ? 0 : (parseNumber(formData.get("price")) ?? 0);
 
   const supabase = createSupabaseServerClient();
-
   const { data: bracelet } = await supabase
     .from("bracelets")
     .select("name")
     .eq("id", braceletId)
     .maybeSingle();
 
-  const { data: transactionRow, error: transactionError } = await supabase
-    .from("transactions")
-    .insert({
-      date: new Date().toISOString().slice(0, 10),
-      type: "sale",
-      description: `Verkauf: ${bracelet?.name ?? "Armband"}`,
-      amount: price,
-      bracelet_id: braceletId,
-      counterparty_name: buyerName,
-    })
-    .select("id")
-    .single();
-
-  if (transactionError || !transactionRow) {
-    redirect(
-      `/bracelets/${braceletId}?error=${encodeURIComponent(
-        "Verkauf konnte nicht gespeichert werden"
-      )}`
-    );
-  }
-
-  const { error: saleError } = await supabase.from("sales").insert({
-    bracelet_id: braceletId,
-    buyer_name: buyerName,
+  const result = await createSaleTransaction({
+    braceletId,
+    braceletName: bracelet?.name ?? "Armband",
+    buyerName,
     price,
-    is_gift: isGift,
-    transaction_id: transactionRow.id,
+    isGift,
   });
 
-  if (saleError) {
-    await supabase.from("transactions").delete().eq("id", transactionRow.id);
-    redirect(
-      `/bracelets/${braceletId}?error=${encodeURIComponent(
-        "Verkauf konnte nicht gespeichert werden"
-      )}`
-    );
+  if (!result.ok) {
+    redirect(`/bracelets/${braceletId}?error=${encodeURIComponent(result.message)}`);
   }
 
   redirect(`/bracelets/${braceletId}`);

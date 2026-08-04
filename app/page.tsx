@@ -53,23 +53,36 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {openOrders.length > 0 && (
-        <section className="w-full max-w-2xl">
-          <p className="mb-3 text-sm uppercase tracking-wide text-gray-400">
+      <section className="w-full max-w-2xl">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm uppercase tracking-wide text-gray-400">
             Offene Bestellungen
           </p>
+          <Link
+            href="/orders/new"
+            className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
+          >
+            + Neue Bestellung
+          </Link>
+        </div>
+        {openOrders.length > 0 && (
           <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
             {openOrders.map((order) => (
-              <li key={order.id} className="px-4 py-3 text-sm text-gray-700">
-                <span className="font-medium text-gray-900">
-                  {order.customer_name}
-                </span>{" "}
-                – {order.bracelet?.name ?? order.wish_text}
+              <li key={order.id}>
+                <Link
+                  href={`/orders/${order.id}`}
+                  className="block px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50"
+                >
+                  <span className="font-medium text-gray-900">
+                    {order.customer_name}
+                  </span>{" "}
+                  – {order.bracelet?.name ?? order.wish_text}
+                </Link>
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
       <nav className="grid w-full max-w-2xl grid-cols-1 gap-4 sm:grid-cols-3">
         <NavCard href="/bracelets" label="Armbandbestand" />

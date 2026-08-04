@@ -292,8 +292,13 @@ export default async function BraceletDetailPage({
           </h2>
           <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
             {openOrders.map((order) => (
-              <li key={order.id} className="px-4 py-3 text-sm text-gray-700">
-                {order.customer_name}
+              <li key={order.id}>
+                <Link
+                  href={`/orders/${order.id}`}
+                  className="block px-4 py-3 text-sm text-gray-700 transition hover:bg-gray-50"
+                >
+                  {order.customer_name}
+                </Link>
               </li>
             ))}
           </ul>
