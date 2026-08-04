@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createSaleTransaction } from "@/lib/sales";
+import { createClaudeClient } from "@/lib/claude";
 
 function parseBeadItems(
   formData: FormData
@@ -252,4 +253,155 @@ export async function recordSale(braceletId: string, formData: FormData) {
   }
 
   redirect(`/bracelets/${braceletId}`);
+}
+
+type SuggestBeadsResult =
+  | { ok: true; items: { bead_id: string; quantity: number }[] }
+  | { ok: false; message: string };
+
+const BEAD_SUGGESTION_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          article_number: { type: "string" },
+          quantity: { type: "integer" },
+        },
+        required: ["article_number", "quantity"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["items"],
+  additionalProperties: false,
+} as const;
+
+type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+type SuggestionContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "url"; url: string } }
+  | {
+      type: "image";
+      source: { type: "base64"; media_type: ImageMediaType; data: string };
+    };
+
+function toImageMediaType(mimeType: string): ImageMediaType {
+  if (
+    mimeType === "image/jpeg" ||
+    mimeType === "image/png" ||
+    mimeType === "image/gif" ||
+    mimeType === "image/webp"
+  ) {
+    return mimeType;
+  }
+  return "image/jpeg";
+}
+
+export async function suggestBeadsFromPhoto(
+  formData: FormData
+): Promise<SuggestBeadsResult> {
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    return { ok: false, message: "Bitte zuerst ein Foto auswählen" };
+  }
+
+  try {
+    const supabase = createSupabaseServerClient();
+    const { data: beads, error } = await supabase
+      .from("beads")
+      .select("id, article_number, color, size_mm, image_url");
+
+    if (error || !beads || beads.length === 0) {
+      return {
+        ok: false,
+        message: "Noch keine Perlen im Materialbestand angelegt",
+      };
+    }
+
+    const bytes = await photo.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const mediaType = toImageMediaType(photo.type);
+
+    const content: SuggestionContentBlock[] = [];
+
+    for (const bead of beads) {
+      if (!bead.image_url) continue;
+      content.push({
+        type: "text",
+        text: `Referenzbild für Perle "${bead.article_number}" (Farbe: ${bead.color ?? "unbekannt"}, Größe: ${bead.size_mm ?? "unbekannt"}mm):`,
+      });
+      content.push({
+        type: "image",
+        source: { type: "url", url: bead.image_url },
+      });
+    }
+
+    const catalogText = beads
+      .map(
+        (bead) =>
+          `- ${bead.article_number}: Farbe ${bead.color ?? "unbekannt"}, Größe ${bead.size_mm ?? "unbekannt"}mm${bead.image_url ? "" : " (kein Referenzfoto)"}`
+      )
+      .join("\n");
+
+    content.push({
+      type: "text",
+      text: `Vollständiger Perlen-Katalog (Artikelnummer: Farbe, Größe):\n${catalogText}`,
+    });
+    content.push({
+      type: "text",
+      text: "Hier ist das Foto eines fertigen Armbands. Zähle, welche Perlen aus dem obigen Katalog wie oft verbaut sind, und ordne sie möglichst genau der passenden Artikelnummer zu. Antworte ausschließlich mit dem geforderten JSON.",
+    });
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: mediaType, data: base64 },
+    });
+
+    const client = createClaudeClient();
+    const response = await client.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 4096,
+      output_config: {
+        format: { type: "json_schema", schema: BEAD_SUGGESTION_SCHEMA },
+      },
+      messages: [{ role: "user", content }],
+    });
+
+    if (response.stop_reason === "refusal") {
+      return {
+        ok: false,
+        message: "Die KI konnte das Foto nicht analysieren (abgelehnt)",
+      };
+    }
+
+    const textBlock = response.content.find((block) => block.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return { ok: false, message: "Keine Antwort von der KI erhalten" };
+    }
+
+    const parsed = JSON.parse(textBlock.text) as {
+      items: { article_number: string; quantity: number }[];
+    };
+
+    const beadsByArticleNumber = new Map(
+      beads.map((bead) => [bead.article_number, bead.id])
+    );
+
+    const items = parsed.items
+      .filter(
+        (item) =>
+          item.quantity > 0 && beadsByArticleNumber.has(item.article_number)
+      )
+      .map((item) => ({
+        bead_id: beadsByArticleNumber.get(item.article_number) as string,
+        quantity: item.quantity,
+      }));
+
+    return { ok: true, items };
+  } catch {
+    return { ok: false, message: "Perlen-Erkennung ist fehlgeschlagen" };
+  }
 }

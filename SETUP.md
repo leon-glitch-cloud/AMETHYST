@@ -22,6 +22,9 @@
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_PASSWORD` – gemeinsames Passwort für den Zugriffsschutz
 - `APP_SESSION_SECRET` – langer Zufallsstring, z. B. mit `openssl rand -hex 32`
+- `ANTHROPIC_API_KEY` – für die KI-Perlen-Erkennung beim Armband-Foto
+  (console.anthropic.com → API Keys). Ohne diesen Key funktioniert die App
+  normal, nur der „Perlen-Vorschlag von KI generieren"-Button schlägt fehl.
 
 ## 3. Lokal starten
 
@@ -35,5 +38,5 @@ Saldo-Dashboard.
 
 ## 4. Deployment (Vercel)
 
-Repo mit Vercel verbinden und dieselben vier Umgebungsvariablen im
-Vercel-Projekt unter Settings → Environment Variables setzen.
+Repo mit Vercel verbinden und dieselben Umgebungsvariablen im Vercel-Projekt
+unter Settings → Environment Variables setzen.

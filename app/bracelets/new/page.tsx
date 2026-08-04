@@ -2,10 +2,8 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createBracelet } from "@/app/bracelets/actions";
 import { Field } from "@/app/beads/_components/field";
-import {
-  BeadPicker,
-  type BeadOption,
-} from "@/app/bracelets/_components/bead-picker";
+import { type BeadOption } from "@/app/bracelets/_components/bead-picker";
+import { BraceletBeadSection } from "@/app/bracelets/_components/bracelet-bead-section";
 
 async function getAllBeads(): Promise<BeadOption[]> {
   try {
@@ -38,19 +36,6 @@ export default async function NewBraceletPage({
       <form action={createBracelet} className="space-y-4">
         <Field label="Name" name="name" required />
 
-        <div>
-          <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
-            Foto
-          </label>
-          <input
-            id="photo"
-            name="photo"
-            type="file"
-            accept="image/*"
-            className="block w-full text-sm text-gray-600"
-          />
-        </div>
-
         <Field
           label="Hergestellte Menge"
           name="made_count"
@@ -70,7 +55,7 @@ export default async function NewBraceletPage({
           />
         </div>
 
-        <BeadPicker allBeads={allBeads} />
+        <BraceletBeadSection allBeads={allBeads} />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}
 

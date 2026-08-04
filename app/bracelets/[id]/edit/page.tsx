@@ -4,10 +4,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { updateBracelet } from "@/app/bracelets/actions";
 import { Field } from "@/app/beads/_components/field";
 import {
-  BeadPicker,
   type BeadOption,
   type BeadItem,
 } from "@/app/bracelets/_components/bead-picker";
+import { BraceletBeadSection } from "@/app/bracelets/_components/bracelet-bead-section";
 
 type Bracelet = {
   id: string;
@@ -95,19 +95,6 @@ export default async function EditBraceletPage({
           required
         />
 
-        <div>
-          <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
-            Foto{bracelet.photo_url ? " (ersetzen)" : ""}
-          </label>
-          <input
-            id="photo"
-            name="photo"
-            type="file"
-            accept="image/*"
-            className="block w-full text-sm text-gray-600"
-          />
-        </div>
-
         <Field
           label="Hergestellte Menge"
           name="made_count"
@@ -129,7 +116,11 @@ export default async function EditBraceletPage({
           />
         </div>
 
-        <BeadPicker allBeads={allBeads} initialItems={initialItems} />
+        <BraceletBeadSection
+          allBeads={allBeads}
+          initialItems={initialItems}
+          photoFieldLabelSuffix={bracelet.photo_url ? " (ersetzen)" : ""}
+        />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}
 

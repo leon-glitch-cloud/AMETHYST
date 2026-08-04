@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 
 export type BeadOption = {
   id: string;
@@ -24,13 +24,14 @@ function beadLabel(bead: BeadOption): string {
   return details ? `${bead.article_number} (${details})` : bead.article_number;
 }
 
-export function BeadPicker({
-  allBeads,
-  initialItems = [],
-}: {
+export type BeadPickerHandle = {
+  setItems: (items: BeadItem[]) => void;
+};
+
+export const BeadPicker = forwardRef<BeadPickerHandle, {
   allBeads: BeadOption[];
   initialItems?: BeadItem[];
-}) {
+}>(function BeadPicker({ allBeads, initialItems = [] }, ref) {
   const [rows, setRows] = useState<
     { key: string; beadId: string; quantity: number }[]
   >(() =>
@@ -40,6 +41,18 @@ export function BeadPicker({
       quantity: item.quantity,
     }))
   );
+
+  useImperativeHandle(ref, () => ({
+    setItems(items: BeadItem[]) {
+      setRows(
+        items.map((item) => ({
+          key: crypto.randomUUID(),
+          beadId: item.bead_id,
+          quantity: item.quantity,
+        }))
+      );
+    },
+  }));
 
   const beadsById = new Map(allBeads.map((bead) => [bead.id, bead]));
 
@@ -137,4 +150,4 @@ export function BeadPicker({
       </p>
     </div>
   );
-}
+});
