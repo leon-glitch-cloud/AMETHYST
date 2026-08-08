@@ -21,6 +21,7 @@ type Bracelet = {
 type BraceletBeadRow = {
   id: string;
   quantity: number;
+  unknown_description: string | null;
   bead: {
     id: string;
     article_number: string;
@@ -81,7 +82,7 @@ async function getBraceletBeads(id: string): Promise<BraceletBeadRow[]> {
     const { data, error } = await supabase
       .from("bracelet_beads")
       .select(
-        "id, quantity, bead:beads(id, article_number, color, size_mm, unit_price)"
+        "id, quantity, unknown_description, bead:beads(id, article_number, color, size_mm, unit_price)"
       )
       .eq("bracelet_id", id);
     if (error || !data) return [];
@@ -207,18 +208,22 @@ export default async function BraceletDetailPage({
         </Link>
       </div>
 
-      <div className="relative mb-6 flex h-56 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
-        {bracelet.photo_url ? (
+      {bracelet.photo_url ? (
+        <div className="relative mb-6 overflow-hidden rounded-lg bg-gray-100">
           <Image
             src={bracelet.photo_url}
             alt={bracelet.name}
-            fill
-            className="object-cover"
+            width={1200}
+            height={1200}
+            sizes="(min-width: 672px) 640px, 100vw"
+            className="h-auto w-full"
           />
-        ) : (
+        </div>
+      ) : (
+        <div className="mb-6 flex h-56 items-center justify-center rounded-lg bg-gray-100">
           <span className="text-sm text-gray-400">Kein Bild</span>
-        )}
-      </div>
+        </div>
+      )}
 
       {bracelet.notes && (
         <p className="mb-6 text-sm text-gray-600">{bracelet.notes}</p>
@@ -268,9 +273,15 @@ export default async function BraceletDetailPage({
                   key={row.id}
                   className="flex items-center justify-between px-4 py-3 text-sm"
                 >
-                  <span className="text-gray-900">
-                    {row.bead?.article_number ?? "Unbekannte Perle"} ×{" "}
-                    {row.quantity}
+                  <span className={row.bead ? "text-gray-900" : "text-amber-600"}>
+                    {row.bead
+                      ? row.bead.article_number
+                      : `Unbekannte Perle${
+                          row.unknown_description
+                            ? ` (${row.unknown_description})`
+                            : ""
+                        }`}{" "}
+                    × {row.quantity}
                   </span>
                   <span className="text-gray-500">
                     {currencyFormatter.format(price * row.quantity)}

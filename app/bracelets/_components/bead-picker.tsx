@@ -10,7 +10,11 @@ export type BeadOption = {
   unit_price: number | string | null;
 };
 
-export type BeadItem = { bead_id: string; quantity: number };
+export type BeadItem = {
+  bead_id: string | null;
+  quantity: number;
+  unknown_description?: string | null;
+};
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
   style: "currency",
@@ -33,12 +37,18 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
   initialItems?: BeadItem[];
 }>(function BeadPicker({ allBeads, initialItems = [] }, ref) {
   const [rows, setRows] = useState<
-    { key: string; beadId: string; quantity: number }[]
+    {
+      key: string;
+      beadId: string;
+      quantity: number;
+      unknownDescription: string | null;
+    }[]
   >(() =>
     initialItems.map((item) => ({
       key: crypto.randomUUID(),
-      beadId: item.bead_id,
+      beadId: item.bead_id ?? "",
       quantity: item.quantity,
+      unknownDescription: item.unknown_description ?? null,
     }))
   );
 
@@ -47,8 +57,9 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
       setRows(
         items.map((item) => ({
           key: crypto.randomUUID(),
-          beadId: item.bead_id,
+          beadId: item.bead_id ?? "",
           quantity: item.quantity,
+          unknownDescription: item.unknown_description ?? null,
         }))
       );
     },
@@ -62,11 +73,18 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
     return sum + row.quantity * Number(bead.unit_price ?? 0);
   }, 0);
 
+  const unresolvedCount = rows.filter((row) => !row.beadId).length;
+
   function addRow() {
     if (allBeads.length === 0) return;
     setRows((prev) => [
       ...prev,
-      { key: crypto.randomUUID(), beadId: allBeads[0].id, quantity: 1 },
+      {
+        key: crypto.randomUUID(),
+        beadId: allBeads[0].id,
+        quantity: 1,
+        unknownDescription: null,
+      },
     ]);
   }
 
@@ -76,7 +94,11 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
 
   function updateRow(
     key: string,
-    patch: Partial<{ beadId: string; quantity: number }>
+    patch: Partial<{
+      beadId: string;
+      quantity: number;
+      unknownDescription: string | null;
+    }>
   ) {
     setRows((prev) =>
       prev.map((row) => (row.key === key ? { ...row, ...patch } : row))
@@ -100,17 +122,37 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
               <select
                 name="bead_id"
                 value={row.beadId}
-                onChange={(event) =>
-                  updateRow(row.key, { beadId: event.target.value })
-                }
-                className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                onChange={(event) => {
+                  const value = event.target.value;
+                  updateRow(row.key, {
+                    beadId: value,
+                    ...(value ? { unknownDescription: null } : {}),
+                  });
+                }}
+                className={`min-w-0 flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:border-gray-500 ${
+                  row.beadId
+                    ? "border-gray-300 text-gray-900"
+                    : "border-amber-300 text-amber-700"
+                }`}
               >
+                {!row.beadId && (
+                  <option value="">
+                    {row.unknownDescription
+                      ? `Unbekannt: ${row.unknownDescription}`
+                      : "— Perle wählen —"}
+                  </option>
+                )}
                 {allBeads.map((bead) => (
                   <option key={bead.id} value={bead.id}>
                     {beadLabel(bead)}
                   </option>
                 ))}
               </select>
+              <input
+                type="hidden"
+                name="unknown_description"
+                value={row.unknownDescription ?? ""}
+              />
               <input
                 name="quantity"
                 type="number"
@@ -144,6 +186,14 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
       >
         + Perle hinzufügen
       </button>
+
+      {unresolvedCount > 0 && (
+        <p className="mt-2 text-sm text-amber-600">
+          {unresolvedCount} unbekannte Perle
+          {unresolvedCount === 1 ? "" : "n"} noch nicht zugeordnet — bitte im
+          Dropdown auswählen, sobald sie im Materialbestand erfasst ist.
+        </p>
+      )}
 
       <p className="mt-2 text-sm text-gray-500">
         Materialkosten: {currencyFormatter.format(total)}

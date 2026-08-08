@@ -35,12 +35,18 @@ create table if not exists bracelets (
   created_at timestamptz not null default now()
 );
 
--- Verknüpfung: verwendete Perlen pro Armband-Modell
+-- Verknüpfung: verwendete Perlen pro Armband-Modell. bead_id ist nullable:
+-- eine per KI-Fotoerkennung gefundene, aber noch nicht im Materialbestand
+-- erfasste Perle wird als "unbekannt" mit Beschreibung angelegt und später
+-- manuell einer echten Perle zugeordnet.
 create table if not exists bracelet_beads (
   id uuid primary key default gen_random_uuid(),
   bracelet_id uuid not null references bracelets (id) on delete cascade,
-  bead_id uuid not null references beads (id) on delete restrict,
-  quantity integer not null default 1
+  bead_id uuid references beads (id) on delete restrict,
+  quantity integer not null default 1,
+  unknown_description text,
+  constraint bracelet_beads_bead_or_unknown
+    check (bead_id is not null or unknown_description is not null)
 );
 
 -- Bilanz-Buchungen (Ausgaben, Verkäufe, Rücksendungen)
@@ -110,6 +116,15 @@ create table if not exists material_orders (
 -- Falls beads schon existiert: name + material ergänzen (no-op bei frischem Setup).
 alter table beads add column if not exists name text;
 alter table beads add column if not exists material text;
+
+-- Falls bracelet_beads schon mit bead_id not null existiert: nullable machen
+-- + unknown_description ergänzen, für unbekannte Perlen aus der Fotoerkennung
+-- (no-op bei frischem Setup).
+alter table bracelet_beads alter column bead_id drop not null;
+alter table bracelet_beads add column if not exists unknown_description text;
+alter table bracelet_beads drop constraint if exists bracelet_beads_bead_or_unknown;
+alter table bracelet_beads add constraint bracelet_beads_bead_or_unknown
+  check (bead_id is not null or unknown_description is not null);
 
 -- Falls beads schon mit altem Preismodell (unit_price/stock_count) angelegt
 -- wurde: auf Packungspreis/-menge umstellen (no-op bei frischem Setup).

@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    serverActions: {
+      // Default 1MB ist zu klein für Handyfotos (Armband-/Perlenfotos,
+      // Bestelllisten-Screenshots), die als Server Action hochgeladen werden.
+      bodySizeLimit: "25mb",
+    },
+  },
 };
 
 export default nextConfig;

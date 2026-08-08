@@ -5,20 +5,32 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createSaleTransaction } from "@/lib/sales";
-import { createClaudeClient, toImageMediaType } from "@/lib/claude";
+import { createClaudeClient, logClaudeError, toImageMediaType } from "@/lib/claude";
 
 function parseBeadItems(
   formData: FormData
-): { bead_id: string; quantity: number }[] {
+): { bead_id: string | null; quantity: number; unknown_description: string | null }[] {
   const beadIds = formData.getAll("bead_id");
   const quantities = formData.getAll("quantity");
-  const items: { bead_id: string; quantity: number }[] = [];
+  const descriptions = formData.getAll("unknown_description");
+  const items: {
+    bead_id: string | null;
+    quantity: number;
+    unknown_description: string | null;
+  }[] = [];
 
   beadIds.forEach((rawId, index) => {
-    if (typeof rawId !== "string" || rawId.trim() === "") return;
+    const beadId =
+      typeof rawId === "string" && rawId.trim() !== "" ? rawId : null;
+    const description = parseText(descriptions[index] ?? null);
+    if (!beadId && !description) return;
     const quantity = parseNumber(quantities[index] ?? null);
     if (!quantity || quantity <= 0) return;
-    items.push({ bead_id: rawId, quantity });
+    items.push({
+      bead_id: beadId,
+      quantity,
+      unknown_description: beadId ? null : description,
+    });
   });
 
   return items;
@@ -39,16 +51,27 @@ export async function createBracelet(formData: FormData) {
     );
   }
 
+  const photo = formData.get("photo");
+  const photoFile = photo instanceof File && photo.size > 0 ? photo : null;
+  const autoDetectBeads = formData.get("auto_detect_beads") === "yes";
+
+  if (autoDetectBeads && !photoFile) {
+    redirect(
+      `/bracelets/new?error=${encodeURIComponent(
+        "Für die automatische Perlen-Erkennung wird ein Foto benötigt"
+      )}`
+    );
+  }
+
   const id = crypto.randomUUID();
   let photoUrl: string | null = null;
 
-  const photo = formData.get("photo");
-  if (photo instanceof File && photo.size > 0) {
+  if (photoFile) {
     try {
       photoUrl = await uploadPublicImage(
         "bracelet-photos",
-        `${id}/${photo.name}`,
-        photo
+        `${id}/${photoFile.name}`,
+        photoFile
       );
     } catch {
       redirect(
@@ -71,25 +94,35 @@ export async function createBracelet(formData: FormData) {
     );
   }
 
-  const items = parseBeadItems(formData);
-  if (items.length > 0) {
-    const { error: beadsError } = await supabase.from("bracelet_beads").insert(
-      items.map((item) => ({
-        bracelet_id: id,
-        bead_id: item.bead_id,
-        quantity: item.quantity,
-      }))
-    );
-    if (beadsError) {
-      redirect(
-        `/bracelets/${id}?error=${encodeURIComponent(
-          "Perlen-Verknüpfung konnte nicht vollständig gespeichert werden"
-        )}`
-      );
+  let beadDetectionError: string | null = null;
+
+  if (autoDetectBeads && photoFile) {
+    const suggestion = await suggestBeadItemsFromPhoto(photoFile);
+    if (!suggestion.ok) {
+      beadDetectionError = suggestion.message;
+    } else if (suggestion.items.length > 0) {
+      const { error: beadsError } = await supabase
+        .from("bracelet_beads")
+        .insert(
+          suggestion.items.map((item) => ({
+            bracelet_id: id,
+            bead_id: item.bead_id,
+            quantity: item.quantity,
+            unknown_description: item.unknown_description,
+          }))
+        );
+      if (beadsError) {
+        beadDetectionError =
+          "Perlen-Verknüpfung konnte nicht vollständig gespeichert werden";
+      }
     }
   }
 
-  redirect(`/bracelets/${id}`);
+  redirect(
+    beadDetectionError
+      ? `/bracelets/${id}?error=${encodeURIComponent(beadDetectionError)}`
+      : `/bracelets/${id}`
+  );
 }
 
 export async function updateBracelet(id: string, formData: FormData) {
@@ -148,6 +181,7 @@ export async function updateBracelet(id: string, formData: FormData) {
         bracelet_id: id,
         bead_id: item.bead_id,
         quantity: item.quantity,
+        unknown_description: item.unknown_description,
       }))
     );
     if (insertError) {
@@ -256,7 +290,14 @@ export async function recordSale(braceletId: string, formData: FormData) {
 }
 
 type SuggestBeadsResult =
-  | { ok: true; items: { bead_id: string; quantity: number }[] }
+  | {
+      ok: true;
+      items: {
+        bead_id: string | null;
+        quantity: number;
+        unknown_description: string | null;
+      }[];
+    }
   | { ok: false; message: string };
 
 const BEAD_SUGGESTION_SCHEMA = {
@@ -267,10 +308,11 @@ const BEAD_SUGGESTION_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          article_number: { type: "string" },
+          article_number: { type: ["string", "null"] },
+          description: { type: ["string", "null"] },
           quantity: { type: "integer" },
         },
-        required: ["article_number", "quantity"],
+        required: ["article_number", "description", "quantity"],
         additionalProperties: false,
       },
     },
@@ -299,6 +341,12 @@ export async function suggestBeadsFromPhoto(
     return { ok: false, message: "Bitte zuerst ein Foto auswählen" };
   }
 
+  return suggestBeadItemsFromPhoto(photo);
+}
+
+async function suggestBeadItemsFromPhoto(
+  photo: File
+): Promise<SuggestBeadsResult> {
   try {
     const supabase = createSupabaseServerClient();
     const { data: beads, error } = await supabase
@@ -343,7 +391,7 @@ export async function suggestBeadsFromPhoto(
     });
     content.push({
       type: "text",
-      text: "Hier ist das Foto eines fertigen Armbands. Zähle, welche Perlen aus dem obigen Katalog wie oft verbaut sind, und ordne sie möglichst genau der passenden Artikelnummer zu. Antworte ausschließlich mit dem geforderten JSON.",
+      text: 'Hier ist das Foto eines fertigen Armbands. Zähle alle verbauten Perlen. Für jede Perle, die im obigen Katalog vorhanden ist: setze article_number auf die passende Artikelnummer, description auf null. Für jede verbaute Perle, die NICHT im Katalog vorhanden ist: setze article_number auf null und beschreibe die Perle stattdessen kurz in description (Farbe, Form, ungefähre Größe), damit sie später im Materialbestand wiedergefunden werden kann. Fasse dabei möglichst gleich aussehende Perlen zu einer Position mit entsprechender quantity zusammen, statt sie einzeln aufzulisten. Antworte ausschließlich mit dem geforderten JSON.',
     });
     content.push({
       type: "image",
@@ -352,8 +400,9 @@ export async function suggestBeadsFromPhoto(
 
     const client = createClaudeClient();
     const response = await client.messages.create({
-      model: "claude-opus-5",
+      model: "claude-sonnet-5",
       max_tokens: 4096,
+      thinking: { type: "disabled" },
       output_config: {
         format: { type: "json_schema", schema: BEAD_SUGGESTION_SCHEMA },
       },
@@ -361,6 +410,10 @@ export async function suggestBeadsFromPhoto(
     });
 
     if (response.stop_reason === "refusal") {
+      console.error(
+        "[suggestBeadsFromPhoto] Claude hat die Analyse verweigert (stop_reason=refusal)",
+        { content: response.content }
+      );
       return {
         ok: false,
         message: "Die KI konnte das Foto nicht analysieren (abgelehnt)",
@@ -369,11 +422,19 @@ export async function suggestBeadsFromPhoto(
 
     const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
+      console.error(
+        "[suggestBeadsFromPhoto] Keine Text-Antwort im Claude-Response enthalten",
+        { stop_reason: response.stop_reason, content: response.content }
+      );
       return { ok: false, message: "Keine Antwort von der KI erhalten" };
     }
 
     const parsed = JSON.parse(textBlock.text) as {
-      items: { article_number: string; quantity: number }[];
+      items: {
+        article_number: string | null;
+        description: string | null;
+        quantity: number;
+      }[];
     };
 
     const beadsByArticleNumber = new Map(
@@ -381,17 +442,23 @@ export async function suggestBeadsFromPhoto(
     );
 
     const items = parsed.items
-      .filter(
-        (item) =>
-          item.quantity > 0 && beadsByArticleNumber.has(item.article_number)
-      )
-      .map((item) => ({
-        bead_id: beadsByArticleNumber.get(item.article_number) as string,
-        quantity: item.quantity,
-      }));
+      .filter((item) => item.quantity > 0)
+      .map((item) => {
+        const beadId = item.article_number
+          ? (beadsByArticleNumber.get(item.article_number) ?? null)
+          : null;
+        return {
+          bead_id: beadId,
+          quantity: item.quantity,
+          unknown_description: beadId
+            ? null
+            : (item.description ?? "Unbekannte Perle"),
+        };
+      });
 
     return { ok: true, items };
-  } catch {
+  } catch (err) {
+    logClaudeError("suggestBeadsFromPhoto", err);
     return { ok: false, message: "Perlen-Erkennung ist fehlgeschlagen" };
   }
 }

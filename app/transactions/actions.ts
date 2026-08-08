@@ -37,3 +37,18 @@ export async function createExpense(formData: FormData) {
 
   redirect("/transactions");
 }
+
+export async function deleteTransaction(id: string) {
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("transactions").delete().eq("id", id);
+
+  if (error) {
+    redirect(
+      `/transactions?error=${encodeURIComponent(
+        "Buchung konnte nicht gelöscht werden"
+      )}`
+    );
+  }
+
+  redirect("/transactions");
+}

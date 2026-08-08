@@ -83,10 +83,16 @@ Jede Bewegung wird als Historien-Eintrag gespeichert:
 - **Offene Bestellungen für dieses Modell** (siehe Funktionsbereich Bestellungen).
 
 ### KI-Erkennung der Perlen aus dem Armband-Foto (halbautomatisch)
-Beim Anlegen eines neuen Armbands: Foto hochladen → Claude API (Vision) analysiert
-das Bild und macht einen **Vorschlag**, welche Perlen wie oft verbaut sind.
+Beim Anlegen eines neuen Armbands ist das Formular bewusst minimal: nur Name,
+Foto und eine optionale Checkbox **„Perlen automatisch mit KI erfassen"**.
+Bleibt die Checkbox leer, wird das Armband einfach nur mit Name und Foto
+angelegt – Perlen können jederzeit später über „Armband bearbeiten" manuell
+ergänzt werden. Ist die Checkbox angehakt, läuft direkt beim Speichern (server-
+seitig, kein zusätzlicher Klick) die Fotoerkennung und die vorgeschlagenen
+Perlen werden gleich mit dem Armband verknüpft; einzelne Positionen lassen
+sich danach jederzeit über „Armband bearbeiten" korrigieren.
 
-Ablauf:
+Ablauf (bei aktivierter Checkbox):
 1. Foto des fertigen Armbands hochladen.
 2. Claude API bekommt das Foto **plus die Referenzbilder + Stammdaten (Farbe, Größe,
    Nummer) aller Perlen aus dem Materialbestand** mitgeschickt, damit sie die
@@ -97,12 +103,21 @@ Ablauf:
    - Realistische Erwartung: Das **Zählen** der unterschiedlichen Perlentypen und
      ihrer Anzahl klappt meist gut. Die **Zuordnung** zur genauen Artikelnummer ist
      ein Vorschlag und kann danebenliegen (ähnliche Farben/Größen).
-4. Vorschlag wird als editierbare Liste angezeigt. Jede erkannte Perle ist
-   **anklickbar**; per Auswähldialog kann die falsch erkannte Perle durch die
-   richtige aus dem Materialbestand ersetzt werden. Mengen sind manuell korrigierbar,
-   Positionen hinzufügbar/löschbar.
-5. Nach Bestätigung werden die Perlen mit dem Armband verknüpft (bracelet_beads)
-   und die Materialkosten automatisch berechnet.
+   - Perlen, die im Foto erkannt werden, aber (noch) nicht im Materialbestand
+     vorhanden sind, werden explizit als **„Unbekannte Perle"** mit einer kurzen
+     KI-Beschreibung (Farbe, Form, ungefähre Größe) markiert, statt einfach
+     wegzufallen. Sie fließen mit 0 € in die Materialkosten ein, bis sie
+     zugeordnet sind.
+4. Die vorgeschlagenen Perlen werden direkt mit dem neuen Armband verknüpft
+   (bracelet_beads), die Materialkosten automatisch berechnet – ohne
+   Zwischenschritt, das Armband ist mit einem Klick fertig angelegt.
+5. Korrigieren lässt sich der Vorschlag jederzeit über „Armband bearbeiten":
+   dort ist jede Perle **anklickbar**, per Auswähldialog kann die falsch
+   erkannte (oder unbekannte) Perle durch die richtige aus dem Materialbestand
+   ersetzt werden, Mengen sind manuell korrigierbar, Positionen
+   hinzufügbar/löschbar. Auf der Bearbeiten-Seite steht außerdem weiterhin der
+   manuelle „Perlen-Vorschlag von KI generieren"-Button zur Verfügung, um die
+   Erkennung erneut laufen zu lassen (z. B. mit einem neuen Foto).
 
 **Wichtig für die Zuordnungsqualität:** Jede Perle im Materialbestand sollte ein
 sauberes Referenzfoto haben – daran gleicht die KI ab. Ohne Referenzfotos kann sie
@@ -219,7 +234,10 @@ Laufende Bilanz (aktuell im Minus wegen Materialeinkäufen).
 
 - **bracelets** (Modell): id, name, photo_url, made_count (hergestellte Menge),
   notes, created_at
-- **bracelet_beads** (Verknüpfungstabelle): id, bracelet_id, bead_id, quantity
+- **bracelet_beads** (Verknüpfungstabelle): id, bracelet_id, bead_id (nullable),
+  quantity, unknown_description (nullable) — bead_id ODER unknown_description
+  ist gesetzt: „unbekannte Perle" aus der Fotoerkennung, noch nicht im
+  Materialbestand vorhanden, ohne Zuordnung zu einer echten Perle
 - **sales:** id, bracelet_id, sale_date, buyer_name, price, is_gift (bool),
   transaction_id, created_at
 - **loans:** id, bracelet_id, borrower_name, loaned_at, returned_at (nullable →

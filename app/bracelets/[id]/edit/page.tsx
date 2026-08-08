@@ -37,7 +37,7 @@ async function getBraceletBeadItems(id: string): Promise<BeadItem[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelet_beads")
-      .select("bead_id, quantity")
+      .select("bead_id, quantity, unknown_description")
       .eq("bracelet_id", id);
     if (error || !data) return [];
     return data;

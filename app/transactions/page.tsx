@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createExpense } from "@/app/transactions/actions";
+import { createExpense, deleteTransaction } from "@/app/transactions/actions";
 import {
   TransactionFilterList,
   type Transaction,
@@ -98,7 +98,10 @@ export default async function TransactionsPage({
         {error && <p className="mt-2 text-sm text-gray-500">{error}</p>}
       </section>
 
-      <TransactionFilterList transactions={transactions} />
+      <TransactionFilterList
+        transactions={transactions}
+        deleteTransaction={deleteTransaction}
+      />
 
       <Link
         href="/"

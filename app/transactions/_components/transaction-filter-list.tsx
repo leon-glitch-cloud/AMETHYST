@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 
 export type Transaction = {
   id: string;
@@ -28,8 +29,10 @@ function formatDate(value: string): string {
 
 export function TransactionFilterList({
   transactions,
+  deleteTransaction,
 }: {
   transactions: Transaction[];
+  deleteTransaction: (id: string, formData: FormData) => void | Promise<void>;
 }) {
   const [types, setTypes] = useState<Set<Transaction["type"]>>(
     new Set(["expense", "sale", "refund"])
@@ -130,6 +133,16 @@ export function TransactionFilterList({
               <span className="shrink-0 text-gray-900">
                 {currencyFormatter.format(Number(tx.amount))}
               </span>
+              <ConfirmFormButton
+                action={deleteTransaction.bind(null, tx.id)}
+                label="Löschen"
+                confirmMessage={
+                  tx.type === "sale"
+                    ? "Diese Buchung wirklich löschen? Der zugehörige Verkauf bleibt in der Verkaufshistorie des Armbands bestehen, zählt dann aber nicht mehr zum Saldo."
+                    : "Diese Buchung wirklich löschen?"
+                }
+                className="shrink-0 text-sm text-gray-400 hover:text-gray-900"
+              />
             </li>
           ))}
         </ul>
