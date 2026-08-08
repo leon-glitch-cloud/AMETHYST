@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createMaterialOrderUpload } from "@/app/beads/import/actions";
+import { FileUploadField } from "@/app/_components/file-upload-field";
 
 export default async function ImportMaterialOrderPage({
   searchParams,
@@ -19,19 +20,14 @@ export default async function ImportMaterialOrderPage({
       </p>
 
       <form action={createMaterialOrderUpload} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm text-gray-600" htmlFor="file">
-            Datei
-          </label>
-          <input
-            id="file"
-            name="file"
-            type="file"
-            accept="application/pdf,image/*"
-            required
-            className="block w-full text-sm text-gray-600"
-          />
-        </div>
+        <FileUploadField
+          id="file"
+          name="file"
+          label="Datei"
+          buttonLabel="Datei auswählen"
+          accept="application/pdf,image/*"
+          required
+        />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}
 

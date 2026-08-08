@@ -1,9 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { updateBead, deleteBead } from "@/app/beads/actions";
 import { Field } from "@/app/beads/_components/field";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
+import { FileUploadField } from "@/app/_components/file-upload-field";
+import { ProductSearchButton } from "@/app/_components/product-search-button";
 
 type Bead = {
   id: string;
@@ -65,6 +68,23 @@ export default async function BeadDetailPage({
         Perle bearbeiten
       </h1>
 
+      <div className="relative mb-6 flex h-56 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+        {bead.image_url ? (
+          <Image
+            src={bead.image_url}
+            alt={bead.article_number}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <span className="text-sm text-gray-400">Kein Bild</span>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <ProductSearchButton url={bead.source_url} shop={bead.source_shop} />
+      </div>
+
       <form action={updateBeadWithId} className="space-y-4">
         <Field
           label="Artikelnummer"
@@ -74,18 +94,13 @@ export default async function BeadDetailPage({
         />
         <Field label="Name" name="name" defaultValue={bead.name ?? undefined} />
 
-        <div>
-          <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
-            Referenzfoto{bead.image_url ? " (ersetzen)" : ""}
-          </label>
-          <input
-            id="photo"
-            name="photo"
-            type="file"
-            accept="image/*"
-            className="block w-full text-sm text-gray-600"
-          />
-        </div>
+        <FileUploadField
+          id="photo"
+          name="photo"
+          label={`Referenzfoto${bead.image_url ? " (ersetzen)" : ""}`}
+          buttonLabel={bead.image_url ? "Foto ersetzen" : "Foto hinzufügen"}
+          accept="image/*"
+        />
 
         <Field
           label="Größe (mm)"

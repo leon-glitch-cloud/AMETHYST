@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { suggestBeadsFromPhoto } from "@/app/bracelets/actions";
+import { FileUploadField } from "@/app/_components/file-upload-field";
 import {
   BeadPicker,
   type BeadItem,
@@ -44,19 +45,14 @@ export function BraceletBeadSection({
 
   return (
     <>
-      <div>
-        <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
-          Foto{photoFieldLabelSuffix}
-        </label>
-        <input
-          id="photo"
-          name="photo"
-          type="file"
-          accept="image/*"
-          onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
-          className="block w-full text-sm text-gray-600"
-        />
-      </div>
+      <FileUploadField
+        id="photo"
+        name="photo"
+        label={`Foto${photoFieldLabelSuffix}`}
+        buttonLabel={photoFieldLabelSuffix ? "Foto ersetzen" : "Foto hinzufügen"}
+        accept="image/*"
+        onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
+      />
 
       <div>
         <button

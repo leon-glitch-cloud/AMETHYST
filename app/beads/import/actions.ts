@@ -2,12 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { uploadPrivateFile, uploadPublicImage } from "@/lib/supabase/storage";
+import { uploadPrivateFile } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
-import { createClaudeClient, toImageMediaType } from "@/lib/claude";
+import { createClaudeClient, logClaudeError, toImageMediaType } from "@/lib/claude";
+import { productSearchUrl } from "@/lib/beads";
 
 type ExtractedItem = {
   article_number: string;
+  name: string | null;
+  material: string | null;
   color: string | null;
   size_mm: number | null;
   package_price: number | null;
@@ -25,6 +28,8 @@ const MATERIAL_ORDER_SCHEMA = {
         type: "object",
         properties: {
           article_number: { type: "string" },
+          name: { type: ["string", "null"] },
+          material: { type: ["string", "null"] },
           color: { type: ["string", "null"] },
           size_mm: { type: ["number", "null"] },
           package_price: { type: ["number", "null"] },
@@ -33,6 +38,8 @@ const MATERIAL_ORDER_SCHEMA = {
         },
         required: [
           "article_number",
+          "name",
+          "material",
           "color",
           "size_mm",
           "package_price",
@@ -110,8 +117,9 @@ export async function createMaterialOrderUpload(formData: FormData) {
   try {
     const client = createClaudeClient();
     const response = await client.messages.create({
-      model: "claude-opus-5",
+      model: "claude-sonnet-5",
       max_tokens: 4096,
+      thinking: { type: "disabled" },
       output_config: {
         format: { type: "json_schema", schema: MATERIAL_ORDER_SCHEMA },
       },
@@ -121,7 +129,7 @@ export async function createMaterialOrderUpload(formData: FormData) {
           content: [
             {
               type: "text",
-              text: "Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Farbe, Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Antworte ausschließlich mit dem geforderten JSON.",
+              text: "Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Name/Bezeichnung der Perle (z. B. \"Donut\"), Material (z. B. \"Edelstahl vg.\"), Farbe, Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Falls ein Wert nicht erkennbar ist, das jeweilige Feld leer lassen (null), nichts raten. Antworte ausschließlich mit dem geforderten JSON.",
             },
             fileBlock,
           ],
@@ -130,11 +138,19 @@ export async function createMaterialOrderUpload(formData: FormData) {
     });
 
     if (response.stop_reason === "refusal") {
+      console.error(
+        "[createMaterialOrderUpload] Claude hat die Analyse verweigert (stop_reason=refusal)",
+        { content: response.content }
+      );
       throw new Error("refusal");
     }
 
     const textBlock = response.content.find((block) => block.type === "text");
     if (!textBlock || textBlock.type !== "text") {
+      console.error(
+        "[createMaterialOrderUpload] Keine Text-Antwort im Claude-Response enthalten",
+        { stop_reason: response.stop_reason, content: response.content }
+      );
       throw new Error("no-text");
     }
 
@@ -142,7 +158,13 @@ export async function createMaterialOrderUpload(formData: FormData) {
       items: Omit<ExtractedItem, "image_url">[];
     };
     items = parsed.items.map((item) => ({ ...item, image_url: null }));
-  } catch {
+  } catch (err) {
+    if (
+      !(err instanceof Error) ||
+      (err.message !== "refusal" && err.message !== "no-text")
+    ) {
+      logClaudeError("createMaterialOrderUpload", err);
+    }
     redirect(
       `/beads/import?error=${encodeURIComponent(
         "Bestellliste konnte nicht analysiert werden"
@@ -150,94 +172,10 @@ export async function createMaterialOrderUpload(formData: FormData) {
     );
   }
 
-  // Bilder aus der Datei ausschneiden (falls vorhanden) — rein optional,
-  // schlägt dieser Block fehl, bleiben die image_url-Felder einfach leer.
-  try {
-    const articleNumbers = items.map((item) => item.article_number);
-    if (articleNumbers.length > 0) {
-      const client = createClaudeClient();
-      const uploaded = await client.beta.files.upload({
-        file,
-        betas: ["files-api-2025-04-14"],
-      });
-
-      const codeResponse = await client.messages.create(
-        {
-          model: "claude-opus-5",
-          max_tokens: 4096,
-          tools: [{ type: "code_execution_20260521", name: "code_execution" }],
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: `Die angehängte Datei ist eine Bestellbestätigung/Materialliste für folgende Artikelnummern: ${articleNumbers.join(
-                    ", "
-                  )}. Prüfe, ob zu einzelnen Artikelnummern ein Produktfoto in der Datei enthalten ist. Falls ja, schneide es aus und speichere es exakt als "<Artikelnummer>.png" (z. B. "${articleNumbers[0]}.png"). Erstelle keine Datei für Artikelnummern ohne erkennbares Foto.`,
-                },
-                { type: "container_upload", file_id: uploaded.id },
-              ],
-            },
-          ],
-        },
-        { headers: { "anthropic-beta": "files-api-2025-04-14" } }
-      );
-
-      const itemsByArticleNumber = new Map(
-        items.map((item) => [item.article_number.toLowerCase(), item])
-      );
-
-      for (const block of codeResponse.content as Array<{
-        type: string;
-        content?: unknown;
-      }>) {
-        if (block.type !== "bash_code_execution_tool_result") continue;
-
-        const result = block.content as
-          | { type: string; content?: Array<{ type: string; file_id?: string }> }
-          | undefined;
-        if (
-          !result ||
-          result.type !== "bash_code_execution_result" ||
-          !result.content
-        ) {
-          continue;
-        }
-
-        for (const fileRef of result.content) {
-          if (fileRef.type !== "bash_code_execution_output" || !fileRef.file_id) {
-            continue;
-          }
-
-          const metadata = await client.beta.files.retrieveMetadata(
-            fileRef.file_id
-          );
-          const baseName = metadata.filename
-            .replace(/\.[^.]+$/, "")
-            .toLowerCase();
-          const matchedItem = itemsByArticleNumber.get(baseName);
-          if (!matchedItem) continue;
-
-          const downloadResponse = await client.beta.files.download(
-            fileRef.file_id
-          );
-          const imageBytes = await downloadResponse.arrayBuffer();
-          const imageFile = new File([imageBytes], metadata.filename, {
-            type: "image/png",
-          });
-          const imageUrl = await uploadPublicImage(
-            "bead-photos",
-            `${matchedItem.article_number}/${metadata.filename}`,
-            imageFile
-          );
-          matchedItem.image_url = imageUrl;
-        }
-      }
-    }
-  } catch {
-    // Bild-Erkennung ist optional, Rest des Flows läuft unverändert weiter.
-  }
+  // Automatisches Bild-Ausschneiden per Code-Execution-Tool wurde entfernt
+  // (zweiter voller Modell-Aufruf mit erneuter Datei-Übertragung war teuer).
+  // Fotos werden stattdessen manuell über den "Foto hinzufügen"-Button an der
+  // Perle ergänzt, ggf. mithilfe des automatisch erzeugten Shop-Suchlinks.
 
   const id = crypto.randomUUID();
   const extension = file.name.split(".").pop() || (isPdf ? "pdf" : "jpg");
@@ -272,6 +210,8 @@ export async function createMaterialOrderUpload(formData: FormData) {
 
 type MaterialOrderRow = {
   article_number: string;
+  name: string | null;
+  material: string | null;
   color: string | null;
   size_mm: number | null;
   package_price: number | null;
@@ -282,6 +222,8 @@ type MaterialOrderRow = {
 
 function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
   const articleNumbers = formData.getAll("article_number");
+  const names = formData.getAll("name");
+  const materials = formData.getAll("material");
   const colors = formData.getAll("color");
   const sizes = formData.getAll("size_mm");
   const prices = formData.getAll("package_price");
@@ -300,6 +242,8 @@ function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
     rows.push({
       article_number: articleNumber,
       image_url: parseText(imageUrls[index] ?? null),
+      name: parseText(names[index] ?? null),
+      material: parseText(materials[index] ?? null),
       color: parseText(colors[index] ?? null),
       size_mm: parseNumber(sizes[index] ?? null),
       package_price: parseNumber(prices[index] ?? null),
@@ -329,7 +273,7 @@ export async function confirmMaterialOrder(
   for (const row of rows) {
     const { data: existing } = await supabase
       .from("beads")
-      .select("id")
+      .select("id, source_url")
       .eq("article_number", row.article_number)
       .maybeSingle();
 
@@ -339,17 +283,28 @@ export async function confirmMaterialOrder(
         .update({
           package_price: row.package_price ?? 0,
           package_quantity: row.package_quantity,
+          ...(existing.source_url
+            ? {}
+            : {
+                source_url: productSearchUrl(
+                  row.article_number,
+                  row.source_shop
+                ),
+              }),
         })
         .eq("id", existing.id);
     } else {
       await supabase.from("beads").insert({
         id: crypto.randomUUID(),
         article_number: row.article_number,
+        name: row.name,
+        material: row.material,
         color: row.color,
         size_mm: row.size_mm,
         package_price: row.package_price ?? 0,
         package_quantity: row.package_quantity,
         source_shop: row.source_shop,
+        source_url: productSearchUrl(row.article_number, row.source_shop),
         image_url: row.image_url,
       });
     }

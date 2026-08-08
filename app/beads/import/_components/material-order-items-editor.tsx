@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { productSearchUrl } from "@/lib/beads";
+import { ProductSearchButton } from "@/app/_components/product-search-button";
 
 export type MaterialOrderItem = {
   article_number: string;
+  name: string | null;
+  material: string | null;
   color: string | null;
   size_mm: number | null;
   package_price: number | null;
@@ -16,6 +20,8 @@ export type MaterialOrderItem = {
 type Row = {
   key: string;
   articleNumber: string;
+  name: string;
+  material: string;
   color: string;
   sizeMm: string;
   packagePrice: string;
@@ -28,6 +34,8 @@ function itemToRow(item: MaterialOrderItem): Row {
   return {
     key: crypto.randomUUID(),
     articleNumber: item.article_number,
+    name: item.name ?? "",
+    material: item.material ?? "",
     color: item.color ?? "",
     sizeMm: item.size_mm != null ? String(item.size_mm) : "",
     packagePrice: item.package_price != null ? String(item.package_price) : "",
@@ -35,6 +43,47 @@ function itemToRow(item: MaterialOrderItem): Row {
     packageQuantity: String(item.package_quantity),
     imageUrl: item.image_url ?? "",
   };
+}
+
+function LabeledInput({
+  id,
+  label,
+  name,
+  type = "text",
+  step,
+  min,
+  required,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  name: string;
+  type?: string;
+  step?: string;
+  min?: number;
+  required?: boolean;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-gray-500" htmlFor={id}>
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        step={step}
+        min={min}
+        required={required}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+      />
+    </div>
+  );
 }
 
 export function MaterialOrderItemsEditor({
@@ -50,6 +99,8 @@ export function MaterialOrderItemsEditor({
       {
         key: crypto.randomUUID(),
         articleNumber: "",
+        name: "",
+        material: "",
         color: "",
         sizeMm: "",
         packagePrice: "",
@@ -93,18 +144,8 @@ export function MaterialOrderItemsEditor({
                   />
                 </div>
               )}
-              <input
-                name="article_number"
-                type="text"
-                placeholder="Artikelnummer"
-                value={row.articleNumber}
-                onChange={(event) =>
-                  updateRow(row.key, { articleNumber: event.target.value })
-                }
-                required
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-              />
               <input type="hidden" name="image_url" value={row.imageUrl} />
+              <div className="flex-1" />
               <button
                 type="button"
                 onClick={() => removeRow(row.key)}
@@ -113,63 +154,90 @@ export function MaterialOrderItemsEditor({
                 Entfernen
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <input
-                name="color"
-                type="text"
-                placeholder="Farbe"
-                value={row.color}
-                onChange={(event) =>
-                  updateRow(row.key, { color: event.target.value })
-                }
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <LabeledInput
+                id={`${row.key}-name`}
+                label="Name"
+                name="name"
+                value={row.name}
+                onChange={(value) => updateRow(row.key, { name: value })}
               />
-              <input
+              <LabeledInput
+                id={`${row.key}-article-number`}
+                label="Artikelnummer"
+                name="article_number"
+                required
+                value={row.articleNumber}
+                onChange={(value) =>
+                  updateRow(row.key, { articleNumber: value })
+                }
+              />
+              <LabeledInput
+                id={`${row.key}-material`}
+                label="Material"
+                name="material"
+                value={row.material}
+                onChange={(value) => updateRow(row.key, { material: value })}
+              />
+              <LabeledInput
+                id={`${row.key}-color`}
+                label="Farbe"
+                name="color"
+                value={row.color}
+                onChange={(value) => updateRow(row.key, { color: value })}
+              />
+              <LabeledInput
+                id={`${row.key}-size`}
+                label="Größe (mm)"
                 name="size_mm"
                 type="number"
                 step="0.1"
-                placeholder="Größe (mm)"
                 value={row.sizeMm}
-                onChange={(event) =>
-                  updateRow(row.key, { sizeMm: event.target.value })
-                }
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                onChange={(value) => updateRow(row.key, { sizeMm: value })}
               />
-              <input
+              <LabeledInput
+                id={`${row.key}-price`}
+                label="Packungspreis (€)"
                 name="package_price"
                 type="number"
                 step="0.01"
-                placeholder="Packungspreis (€)"
                 value={row.packagePrice}
-                onChange={(event) =>
-                  updateRow(row.key, { packagePrice: event.target.value })
+                onChange={(value) =>
+                  updateRow(row.key, { packagePrice: value })
                 }
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               />
-              <input
-                name="source_shop"
-                type="text"
-                placeholder="Shop"
-                value={row.shop}
-                onChange={(event) =>
-                  updateRow(row.key, { shop: event.target.value })
-                }
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-              />
-              <input
+              <LabeledInput
+                id={`${row.key}-quantity`}
+                label="Packungsmenge (Stk.)"
                 name="package_quantity"
                 type="number"
                 step="1"
                 min={1}
-                placeholder="Packungsmenge (Stk.)"
-                value={row.packageQuantity}
-                onChange={(event) =>
-                  updateRow(row.key, { packageQuantity: event.target.value })
-                }
                 required
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                value={row.packageQuantity}
+                onChange={(value) =>
+                  updateRow(row.key, { packageQuantity: value })
+                }
+              />
+              <LabeledInput
+                id={`${row.key}-shop`}
+                label="Shop"
+                name="source_shop"
+                value={row.shop}
+                onChange={(value) => updateRow(row.key, { shop: value })}
               />
             </div>
+            {row.articleNumber.trim() && (
+              <div className="mt-2">
+                <ProductSearchButton
+                  url={productSearchUrl(
+                    row.articleNumber.trim(),
+                    row.shop.trim() || null
+                  )}
+                  shop={row.shop.trim() || null}
+                />
+              </div>
+            )}
           </div>
         ))
       )}

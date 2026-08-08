@@ -24,6 +24,12 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Tailwind v4's preflight dropped the v3 default of cursor: pointer on
+   buttons (now follows the native browser default instead). Restore it. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 /* iOS Safari auto-zooms on focus when a form field's font-size is below
    16px, and the zoom often gets stuck afterwards, leaving the page
    horizontally scrollable. Force 16px on small screens regardless of

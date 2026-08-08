@@ -174,11 +174,13 @@ schnell finden, wo und zu welchem Preis nachbestellt werden kann.
 
 **Upload von Bestelllisten (halbautomatisch):**
 - Nutzer lädt Bestellbestätigung/Materialliste hoch (PDF, Screenshot, Bild – Formate gemischt).
-- Datei geht an Claude API (Vision/PDF-Fähigkeit), die die enthaltenen Positionen
-  ausliest: Nummer, Größe, Farbe, Preis, Shop. **Falls die Liste Bilder enthält,
-  werden diese automatisch mit übernommen.** Oft enthalten Listen aber keine Bilder –
-  dann bleibt das Foto-Feld leer und wird später manuell an der Perle ergänzt
-  (siehe oben).
+- Datei geht an Claude API (Vision/PDF-Fähigkeit, Modell claude-sonnet-5 aus
+  Kostengründen), die die enthaltenen Positionen ausliest: Nummer, Name,
+  Material, Größe, Farbe, Packungspreis/-menge, Shop. Automatisches
+  Bild-Ausschneiden aus der Datei gibt es bewusst NICHT (zweiter Modell-Aufruf
+  war zu teuer) – das Foto-Feld bleibt leer und wird später manuell an der
+  Perle ergänzt, z. B. über den automatisch erzeugten Shop-Suchlink (siehe
+  oben).
 - Ergebnis wird als **vorausgefülltes, editierbares Formular** angezeigt.
 - Nutzer prüft/korrigiert und bestätigt → dann werden die Positionen in den
   Materialbestand übernommen (neue Perle anlegen, oder vorhandene mit gleicher
