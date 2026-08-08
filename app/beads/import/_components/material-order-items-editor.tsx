@@ -7,9 +7,9 @@ export type MaterialOrderItem = {
   article_number: string;
   color: string | null;
   size_mm: number | null;
-  unit_price: number | null;
+  package_price: number | null;
   shop: string | null;
-  quantity: number;
+  package_quantity: number;
   image_url: string | null;
 };
 
@@ -18,9 +18,9 @@ type Row = {
   articleNumber: string;
   color: string;
   sizeMm: string;
-  unitPrice: string;
+  packagePrice: string;
   shop: string;
-  quantity: string;
+  packageQuantity: string;
   imageUrl: string;
 };
 
@@ -30,9 +30,9 @@ function itemToRow(item: MaterialOrderItem): Row {
     articleNumber: item.article_number,
     color: item.color ?? "",
     sizeMm: item.size_mm != null ? String(item.size_mm) : "",
-    unitPrice: item.unit_price != null ? String(item.unit_price) : "",
+    packagePrice: item.package_price != null ? String(item.package_price) : "",
     shop: item.shop ?? "",
-    quantity: String(item.quantity),
+    packageQuantity: String(item.package_quantity),
     imageUrl: item.image_url ?? "",
   };
 }
@@ -52,9 +52,9 @@ export function MaterialOrderItemsEditor({
         articleNumber: "",
         color: "",
         sizeMm: "",
-        unitPrice: "",
+        packagePrice: "",
         shop: "",
-        quantity: "1",
+        packageQuantity: "1",
         imageUrl: "",
       },
     ]);
@@ -136,13 +136,13 @@ export function MaterialOrderItemsEditor({
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               />
               <input
-                name="unit_price"
+                name="package_price"
                 type="number"
                 step="0.01"
-                placeholder="Preis (€)"
-                value={row.unitPrice}
+                placeholder="Packungspreis (€)"
+                value={row.packagePrice}
                 onChange={(event) =>
-                  updateRow(row.key, { unitPrice: event.target.value })
+                  updateRow(row.key, { packagePrice: event.target.value })
                 }
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               />
@@ -157,14 +157,14 @@ export function MaterialOrderItemsEditor({
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               />
               <input
-                name="quantity"
+                name="package_quantity"
                 type="number"
                 step="1"
                 min={1}
-                placeholder="Menge"
-                value={row.quantity}
+                placeholder="Packungsmenge (Stk.)"
+                value={row.packageQuantity}
                 onChange={(event) =>
-                  updateRow(row.key, { quantity: event.target.value })
+                  updateRow(row.key, { packageQuantity: event.target.value })
                 }
                 required
                 className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"

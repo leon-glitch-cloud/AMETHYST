@@ -103,7 +103,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
                 onChange={(event) =>
                   updateRow(row.key, { beadId: event.target.value })
                 }
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               >
                 {allBeads.map((bead) => (
                   <option key={bead.id} value={bead.id}>

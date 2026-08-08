@@ -9,11 +9,17 @@ function beadFieldsFromFormData(formData: FormData) {
   return {
     size_mm: parseNumber(formData.get("size_mm")),
     color: parseText(formData.get("color")),
-    unit_price: parseNumber(formData.get("unit_price")) ?? 0,
+    package_price: parseNumber(formData.get("package_price")) ?? 0,
+    package_quantity: parseNumber(formData.get("package_quantity")) ?? 1,
     source_shop: parseText(formData.get("source_shop")),
     source_url: parseText(formData.get("source_url")),
-    stock_count: parseNumber(formData.get("stock_count")) ?? 0,
   };
+}
+
+function beadErrorMessage(error: { code?: string }): string {
+  if (error.code === "23505") return "Artikelnummer existiert bereits";
+  if (error.code === "23514") return "Packungsmenge muss größer als 0 sein";
+  return "Perle konnte nicht gespeichert werden";
 }
 
 export async function createBead(formData: FormData) {
@@ -47,11 +53,9 @@ export async function createBead(formData: FormData) {
   });
 
   if (error) {
-    const message =
-      error.code === "23505"
-        ? "Artikelnummer existiert bereits"
-        : "Perle konnte nicht gespeichert werden";
-    redirect(`/beads/new?error=${encodeURIComponent(message)}`);
+    redirect(
+      `/beads/new?error=${encodeURIComponent(beadErrorMessage(error))}`
+    );
   }
 
   redirect("/beads");
@@ -88,11 +92,9 @@ export async function updateBead(id: string, formData: FormData) {
     .eq("id", id);
 
   if (error) {
-    const message =
-      error.code === "23505"
-        ? "Artikelnummer existiert bereits"
-        : "Perle konnte nicht gespeichert werden";
-    redirect(`/beads/${id}?error=${encodeURIComponent(message)}`);
+    redirect(
+      `/beads/${id}?error=${encodeURIComponent(beadErrorMessage(error))}`
+    );
   }
 
   redirect("/beads");

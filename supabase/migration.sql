@@ -8,17 +8,18 @@
 
 create extension if not exists "pgcrypto";
 
--- Perlen / Materialbestand
+-- Perlen / Materialbestand (kein Lagerbestand: Preis pro Perle wird aus
+-- Packungspreis / Packungsmenge berechnet)
 create table if not exists beads (
   id uuid primary key default gen_random_uuid(),
   article_number text not null unique,
   image_url text,
   size_mm numeric,
   color text,
-  unit_price numeric not null default 0,
+  package_price numeric not null default 0,
+  package_quantity numeric not null default 1 check (package_quantity > 0),
   source_shop text,
   source_url text,
-  stock_count integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -104,20 +105,22 @@ create table if not exists material_orders (
   created_at timestamptz not null default now()
 );
 
--- Rücksendung von Perlen (Erstattung) – Kopf + Positionen
-create table if not exists bead_returns (
-  id uuid primary key default gen_random_uuid(),
-  transaction_id uuid references transactions (id) on delete set null,
-  created_at timestamptz not null default now()
-);
+-- Falls beads schon mit altem Preismodell (unit_price/stock_count) angelegt
+-- wurde: auf Packungspreis/-menge umstellen (no-op bei frischem Setup).
+alter table beads add column if not exists package_price numeric not null default 0;
+alter table beads add column if not exists package_quantity numeric not null default 1;
+alter table beads drop constraint if exists beads_package_quantity_check;
+alter table beads add constraint beads_package_quantity_check check (package_quantity > 0);
+alter table beads drop column if exists unit_price;
+alter table beads drop column if exists stock_count;
+-- Preis pro Perle wird automatisch berechnet, nicht manuell gepflegt.
+alter table beads add column if not exists unit_price numeric
+  generated always as (package_price / package_quantity) stored;
 
-create table if not exists bead_return_items (
-  id uuid primary key default gen_random_uuid(),
-  bead_return_id uuid not null references bead_returns (id) on delete cascade,
-  bead_id uuid not null references beads (id) on delete restrict,
-  quantity integer not null default 1,
-  refund_amount numeric not null default 0
-);
+-- Rücksende-Feature mit Bestandsabzug entfernt – Rücksendungen laufen künftig
+-- nur noch als normale positive Buchung über transactions (no-op bei frischem Setup).
+drop table if exists bead_return_items;
+drop table if exists bead_returns;
 
 create index if not exists bracelet_beads_bracelet_id_idx on bracelet_beads (bracelet_id);
 create index if not exists bracelet_beads_bead_id_idx on bracelet_beads (bead_id);
@@ -127,8 +130,6 @@ create index if not exists transactions_bracelet_id_idx on transactions (bracele
 create index if not exists loans_open_idx on loans (bracelet_id) where returned_at is null;
 create index if not exists orders_bracelet_id_idx on orders (bracelet_id);
 create index if not exists orders_status_idx on orders (status) where status = 'open';
-create index if not exists bead_return_items_bead_return_id_idx on bead_return_items (bead_return_id);
-create index if not exists bead_return_items_bead_id_idx on bead_return_items (bead_id);
 
 alter table beads enable row level security;
 alter table bracelets enable row level security;
@@ -138,8 +139,6 @@ alter table sales enable row level security;
 alter table loans enable row level security;
 alter table orders enable row level security;
 alter table material_orders enable row level security;
-alter table bead_returns enable row level security;
-alter table bead_return_items enable row level security;
 
 -- Storage-Buckets bitte manuell im Dashboard anlegen (Storage → New bucket):
 -- bracelet-photos (Public), bead-photos (Public), material-order-uploads

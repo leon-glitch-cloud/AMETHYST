@@ -11,11 +11,18 @@ type Bead = {
   image_url: string | null;
   size_mm: number | string | null;
   color: string | null;
+  package_price: number | string | null;
+  package_quantity: number | string | null;
   unit_price: number | string | null;
   source_shop: string | null;
   source_url: string | null;
-  stock_count: number;
 };
+
+const currencyFormatter = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 4,
+});
 
 async function getBead(id: string): Promise<Bead | null> {
   try {
@@ -86,12 +93,22 @@ export default async function BeadDetailPage({
         />
         <Field label="Farbe" name="color" defaultValue={bead.color ?? undefined} />
         <Field
-          label="Preis (€)"
-          name="unit_price"
+          label="Packungspreis (€)"
+          name="package_price"
           type="number"
           step="0.01"
-          defaultValue={bead.unit_price ?? undefined}
+          defaultValue={bead.package_price ?? undefined}
         />
+        <Field
+          label="Packungsmenge (Stk.)"
+          name="package_quantity"
+          type="number"
+          step="1"
+          defaultValue={bead.package_quantity ?? 1}
+        />
+        <p className="text-sm text-gray-500">
+          Preis pro Perle: {currencyFormatter.format(Number(bead.unit_price ?? 0))}
+        </p>
         <Field
           label="Shop"
           name="source_shop"
@@ -102,13 +119,6 @@ export default async function BeadDetailPage({
           name="source_url"
           type="url"
           defaultValue={bead.source_url ?? undefined}
-        />
-        <Field
-          label="Bestandsmenge"
-          name="stock_count"
-          type="number"
-          step="1"
-          defaultValue={bead.stock_count}
         />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}

@@ -7,7 +7,7 @@ async function getBeads(): Promise<Bead[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("beads")
-      .select("id, article_number, image_url, size_mm, color, unit_price, stock_count")
+      .select("id, article_number, image_url, size_mm, color, unit_price")
       .order("article_number", { ascending: true });
     if (error || !data) return [];
     return data;
@@ -21,20 +21,14 @@ export default async function BeadsPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-12">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-medium text-gray-900">Perlenbestand</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/beads/import"
             className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
           >
             Bestellliste importieren
-          </Link>
-          <Link
-            href="/beads/return"
-            className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
-          >
-            Rücksendung erfassen
           </Link>
           <Link
             href="/beads/new"

@@ -10,9 +10,9 @@ type ExtractedItem = {
   article_number: string;
   color: string | null;
   size_mm: number | null;
-  unit_price: number | null;
+  package_price: number | null;
   shop: string | null;
-  quantity: number;
+  package_quantity: number;
   image_url: string | null;
 };
 
@@ -27,17 +27,17 @@ const MATERIAL_ORDER_SCHEMA = {
           article_number: { type: "string" },
           color: { type: ["string", "null"] },
           size_mm: { type: ["number", "null"] },
-          unit_price: { type: ["number", "null"] },
+          package_price: { type: ["number", "null"] },
           shop: { type: ["string", "null"] },
-          quantity: { type: "integer" },
+          package_quantity: { type: "integer" },
         },
         required: [
           "article_number",
           "color",
           "size_mm",
-          "unit_price",
+          "package_price",
           "shop",
-          "quantity",
+          "package_quantity",
         ],
         additionalProperties: false,
       },
@@ -121,7 +121,7 @@ export async function createMaterialOrderUpload(formData: FormData) {
           content: [
             {
               type: "text",
-              text: "Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies alle Positionen aus: Artikelnummer, Farbe, Größe (mm), Einzelpreis, Shop/Händler (falls erkennbar) und bestellte Menge. Antworte ausschließlich mit dem geforderten JSON.",
+              text: "Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Farbe, Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Antworte ausschließlich mit dem geforderten JSON.",
             },
             fileBlock,
           ],
@@ -274,9 +274,9 @@ type MaterialOrderRow = {
   article_number: string;
   color: string | null;
   size_mm: number | null;
-  unit_price: number | null;
+  package_price: number | null;
   source_shop: string | null;
-  quantity: number;
+  package_quantity: number;
   image_url: string | null;
 };
 
@@ -284,9 +284,9 @@ function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
   const articleNumbers = formData.getAll("article_number");
   const colors = formData.getAll("color");
   const sizes = formData.getAll("size_mm");
-  const prices = formData.getAll("unit_price");
+  const prices = formData.getAll("package_price");
   const shops = formData.getAll("source_shop");
-  const quantities = formData.getAll("quantity");
+  const quantities = formData.getAll("package_quantity");
   const imageUrls = formData.getAll("image_url");
 
   const rows: MaterialOrderRow[] = [];
@@ -294,17 +294,17 @@ function parseMaterialOrderRows(formData: FormData): MaterialOrderRow[] {
   articleNumbers.forEach((raw, index) => {
     const articleNumber = parseText(raw);
     if (!articleNumber) return;
-    const quantity = parseNumber(quantities[index] ?? null);
-    if (!quantity || quantity <= 0) return;
+    const packageQuantity = parseNumber(quantities[index] ?? null) ?? 1;
+    if (packageQuantity <= 0) return;
 
     rows.push({
       article_number: articleNumber,
       image_url: parseText(imageUrls[index] ?? null),
       color: parseText(colors[index] ?? null),
       size_mm: parseNumber(sizes[index] ?? null),
-      unit_price: parseNumber(prices[index] ?? null),
+      package_price: parseNumber(prices[index] ?? null),
       source_shop: parseText(shops[index] ?? null),
-      quantity,
+      package_quantity: packageQuantity,
     });
   });
 
@@ -329,14 +329,17 @@ export async function confirmMaterialOrder(
   for (const row of rows) {
     const { data: existing } = await supabase
       .from("beads")
-      .select("id, stock_count")
+      .select("id")
       .eq("article_number", row.article_number)
       .maybeSingle();
 
     if (existing) {
       await supabase
         .from("beads")
-        .update({ stock_count: existing.stock_count + row.quantity })
+        .update({
+          package_price: row.package_price ?? 0,
+          package_quantity: row.package_quantity,
+        })
         .eq("id", existing.id);
     } else {
       await supabase.from("beads").insert({
@@ -344,18 +347,15 @@ export async function confirmMaterialOrder(
         article_number: row.article_number,
         color: row.color,
         size_mm: row.size_mm,
-        unit_price: row.unit_price ?? 0,
+        package_price: row.package_price ?? 0,
+        package_quantity: row.package_quantity,
         source_shop: row.source_shop,
-        stock_count: row.quantity,
         image_url: row.image_url,
       });
     }
   }
 
-  const total = rows.reduce(
-    (sum, row) => sum + row.quantity * (row.unit_price ?? 0),
-    0
-  );
+  const total = rows.reduce((sum, row) => sum + (row.package_price ?? 0), 0);
 
   const { error: transactionError } = await supabase
     .from("transactions")

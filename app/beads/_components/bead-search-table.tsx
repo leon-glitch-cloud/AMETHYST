@@ -11,12 +11,12 @@ export type Bead = {
   size_mm: number | string | null;
   color: string | null;
   unit_price: number | string | null;
-  stock_count: number;
 };
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",
+  maximumFractionDigits: 4,
 });
 
 export function BeadSearchTable({ beads }: { beads: Bead[] }) {
@@ -91,7 +91,7 @@ export function BeadSearchTable({ beads }: { beads: Bead[] }) {
                   <p className="text-sm text-gray-900">
                     {currencyFormatter.format(Number(bead.unit_price ?? 0))}
                   </p>
-                  <p className="text-sm text-gray-500">{bead.stock_count} Stk.</p>
+                  <p className="text-sm text-gray-500">pro Perle</p>
                 </div>
               </Link>
             </li>

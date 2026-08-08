@@ -144,20 +144,16 @@ Durchsuchbare Übersicht aller Perlen/Materialien.
 - Bild
 - Größe (Durchmesser in mm)
 - Farbe
-- Preis (Einkaufspreis pro Stück oder pro Einheit – festlegen)
+- **Packungspreis** (was die Packung gekostet hat, z. B. 4,95 €)
+- **Packungsmenge** (wie viele Perlen in der Packung, z. B. 20)
+- **Preis pro Perle** = Packungspreis ÷ Packungsmenge (automatisch berechnet und in
+  der Übersicht angezeigt, z. B. 0,2475 €). Nur dieser Stückpreis ist relevant für
+  die Materialkostenberechnung der Armbänder.
 - Bezugsquelle / Shop (wo bestellt) + ggf. Link/Seite
-- Bestandsmenge
 
-**Rücksendung von Perlen (Erstattung):**
-- Nutzer wählt Aktion „Rücksendung", dann eine oder mehrere Perlen aus dem Bestand
-  mit jeweiliger Menge.
-- Wirkung automatisch:
-  - Perlenbestand der gewählten Perlen wird um die Menge **reduziert**.
-  - Es entsteht eine **positive Bilanzbuchung** (Erstattung / Geld kommt zurück).
-- Erstattungsbetrag wird mit Menge × Einkaufspreis vorbelegt, ist aber
-  **überschreibbar** (z. B. wenn der Shop weniger erstattet oder Versand abzieht).
-- Gegenstück zur Materialbestellung: Bestellung = Bestand rauf, Geld raus;
-  Rücksendung = Bestand runter, Geld rein.
+**KEIN Lagerbestand:** Es wird NICHT verfolgt, wie viele Stück einer Perle vorhanden
+sind. Dieselbe Perle wird mehrfach nachgekauft; die Stückzahl ist irrelevant. Menge/
+Preis dienen ausschließlich der Umrechnung auf den Stückpreis.
 
 **Foto pro Perle (manuell hinzufügen):**
 - Bestelllisten enthalten MEISTENS keine Bilder – die liefern oft nur Nummer, Größe,
@@ -183,7 +179,8 @@ schnell finden, wo und zu welchem Preis nachbestellt werden kann.
   (siehe oben).
 - Ergebnis wird als **vorausgefülltes, editierbares Formular** angezeigt.
 - Nutzer prüft/korrigiert und bestätigt → dann werden die Positionen in den
-  Materialbestand übernommen (neu angelegt oder Bestand erhöht, wenn Nummer existiert).
+  Materialbestand übernommen (neue Perle anlegen, oder vorhandene mit gleicher
+  Artikelnummer aktualisieren – z. B. Preis/Packungsmenge). Kein Bestandszähler.
 - Wichtig: Extraktion ist ein Vorschlag, der Mensch bestätigt immer.
 
 ---
@@ -201,9 +198,9 @@ Laufende Bilanz (aktuell im Minus wegen Materialeinkäufen).
   eintippen – die Buchung wird durch den Verkauf erzeugt und ist mit ihm verknüpft.
 - **Geschenk:** ist ein Verkauf mit Preis 0 (Empfänger dokumentiert), erscheint mit
   Betrag 0 in der Historie.
-- **Rücksendung (Erstattung):** entsteht automatisch, wenn im Perlenbestand eine
-  Rücksendung erfasst wird. Positive Buchung (Geld zurück), gekoppelt an die
-  Bestandsminderung der zurückgesendeten Perlen.
+- **Rücksendung / Erstattung:** wird als normale positive Buchung im Bilanz-Bereich
+  manuell erfasst (Datum, Beschreibung z. B. „Erstattung Shop XY", Betrag positiv).
+  Keine eigene Perlen-Mechanik, kein Bestandsbezug.
 - **Verleih:** erzeugt bewusst KEINE Buchung – kein Geldfluss, das Armband bleibt
   Bestand.
 
@@ -227,17 +224,18 @@ Laufende Bilanz (aktuell im Minus wegen Materialeinkäufen).
   NULL = individueller Wunsch), wish_text (nullable, Freitext für Wunsch ohne Modell),
   status (open/done/cancelled), sale_id (nullable → gesetzt wenn als Verkauf erledigt),
   created_at
-- **beads:** id, article_number, image_url, size_mm, color, unit_price, source_shop,
-  source_url, stock_count, created_at
+- **beads:** id, article_number, image_url, size_mm, color, package_price
+  (Packungspreis), package_quantity (Packungsmenge), source_shop, source_url,
+  created_at
+  - Preis pro Perle = package_price / package_quantity (berechnet, nicht gespeichert
+    – oder als generierte Spalte). Kein Lagerbestand.
 - **transactions:** id, date, type (expense/sale/refund), description, amount,
   bracelet_id (nullable), counterparty_name (nullable), created_at
   - Verkäufe erzeugen automatisch eine transaction (type=sale) und verweisen darüber
     aus der Verkaufshistorie in die Bilanz. Geschenke: amount 0.
-  - Rücksendungen erzeugen eine transaction (type=refund, positiver Betrag).
+  - Rücksendungen/Erstattungen: manuell erfasste transaction (type=refund, positiver
+    Betrag). Keine eigene Perlen-/Bestandsmechanik.
   - Verleihungen erzeugen KEINE transaction.
-- **bead_returns:** id, transaction_id, created_at (Kopf einer Rücksendung)
-- **bead_return_items:** id, bead_return_id, bead_id, quantity, refund_amount
-  (Positionen: welche Perle, wie viele, wie viel erstattet)
 - **material_orders** (optional, für Uploads): id, file_url, extracted_json, status
   (pending/confirmed), created_at
 
@@ -246,7 +244,8 @@ Abgeleitete Zähler pro Modell (nicht gespeichert, berechnet):
 - offen verliehen = COUNT(loans WHERE returned_at IS NULL)
 - auf Lager = made_count − verkauft − offen verliehen
 
-Materialkosten eines Armbands = Summe über bracelet_beads (quantity × beads.unit_price).
+Materialkosten eines Armbands = Summe über bracelet_beads
+(quantity × Preis pro Perle), wobei Preis pro Perle = package_price / package_quantity.
 
 ---
 

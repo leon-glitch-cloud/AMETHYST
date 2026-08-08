@@ -31,10 +31,21 @@ export default async function NewBeadPage({
 
         <Field label="Größe (mm)" name="size_mm" type="number" step="0.1" />
         <Field label="Farbe" name="color" />
-        <Field label="Preis (€)" name="unit_price" type="number" step="0.01" />
+        <Field
+          label="Packungspreis (€)"
+          name="package_price"
+          type="number"
+          step="0.01"
+        />
+        <Field
+          label="Packungsmenge (Stk.)"
+          name="package_quantity"
+          type="number"
+          step="1"
+          defaultValue={1}
+        />
         <Field label="Shop" name="source_shop" />
         <Field label="Shop-Link" name="source_url" type="url" />
-        <Field label="Bestandsmenge" name="stock_count" type="number" step="1" />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}
 
