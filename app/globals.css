@@ -12,8 +12,26 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* iOS Safari auto-zooms on focus when a form field's font-size is below
+   16px, and the zoom often gets stuck afterwards, leaving the page
+   horizontally scrollable. Force 16px on small screens regardless of
+   Tailwind text-size utilities to prevent that. */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
