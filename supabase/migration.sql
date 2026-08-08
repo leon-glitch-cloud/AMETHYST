@@ -13,6 +13,8 @@ create extension if not exists "pgcrypto";
 create table if not exists beads (
   id uuid primary key default gen_random_uuid(),
   article_number text not null unique,
+  name text,
+  material text,
   image_url text,
   size_mm numeric,
   color text,
@@ -104,6 +106,10 @@ create table if not exists material_orders (
   status text not null default 'pending' check (status in ('pending', 'confirmed')),
   created_at timestamptz not null default now()
 );
+
+-- Falls beads schon existiert: name + material ergänzen (no-op bei frischem Setup).
+alter table beads add column if not exists name text;
+alter table beads add column if not exists material text;
 
 -- Falls beads schon mit altem Preismodell (unit_price/stock_count) angelegt
 -- wurde: auf Packungspreis/-menge umstellen (no-op bei frischem Setup).

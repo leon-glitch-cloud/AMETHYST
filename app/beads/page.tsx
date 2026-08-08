@@ -7,7 +7,9 @@ async function getBeads(): Promise<Bead[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("beads")
-      .select("id, article_number, image_url, size_mm, color, unit_price")
+      .select(
+        "id, article_number, name, material, image_url, size_mm, color, unit_price"
+      )
       .order("article_number", { ascending: true });
     if (error || !data) return [];
     return data;

@@ -7,6 +7,8 @@ import { parseNumber, parseText } from "@/lib/forms";
 
 function beadFieldsFromFormData(formData: FormData) {
   return {
+    name: parseText(formData.get("name")),
+    material: parseText(formData.get("material")),
     size_mm: parseNumber(formData.get("size_mm")),
     color: parseText(formData.get("color")),
     package_price: parseNumber(formData.get("package_price")) ?? 0,

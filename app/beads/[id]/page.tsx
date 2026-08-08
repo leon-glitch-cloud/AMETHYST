@@ -8,6 +8,8 @@ import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 type Bead = {
   id: string;
   article_number: string;
+  name: string | null;
+  material: string | null;
   image_url: string | null;
   size_mm: number | string | null;
   color: string | null;
@@ -70,6 +72,7 @@ export default async function BeadDetailPage({
           defaultValue={bead.article_number}
           required
         />
+        <Field label="Name" name="name" defaultValue={bead.name ?? undefined} />
 
         <div>
           <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
@@ -92,6 +95,11 @@ export default async function BeadDetailPage({
           defaultValue={bead.size_mm ?? undefined}
         />
         <Field label="Farbe" name="color" defaultValue={bead.color ?? undefined} />
+        <Field
+          label="Material"
+          name="material"
+          defaultValue={bead.material ?? undefined}
+        />
         <Field
           label="Packungspreis (€)"
           name="package_price"

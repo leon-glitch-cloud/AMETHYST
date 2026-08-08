@@ -141,9 +141,11 @@ Durchsuchbare Übersicht aller Perlen/Materialien.
 
 **Pro Perle:**
 - Artikelnummer
+- Name (z. B. „Donut")
 - Bild
 - Größe (Durchmesser in mm)
 - Farbe
+- Material (z. B. „Edelstahl vg.")
 - **Packungspreis** (was die Packung gekostet hat, z. B. 4,95 €)
 - **Packungsmenge** (wie viele Perlen in der Packung, z. B. 20)
 - **Preis pro Perle** = Packungspreis ÷ Packungsmenge (automatisch berechnet und in
@@ -224,9 +226,9 @@ Laufende Bilanz (aktuell im Minus wegen Materialeinkäufen).
   NULL = individueller Wunsch), wish_text (nullable, Freitext für Wunsch ohne Modell),
   status (open/done/cancelled), sale_id (nullable → gesetzt wenn als Verkauf erledigt),
   created_at
-- **beads:** id, article_number, image_url, size_mm, color, package_price
-  (Packungspreis), package_quantity (Packungsmenge), source_shop, source_url,
-  created_at
+- **beads:** id, article_number, name, material, image_url, size_mm, color,
+  package_price (Packungspreis), package_quantity (Packungsmenge), source_shop,
+  source_url, created_at
   - Preis pro Perle = package_price / package_quantity (berechnet, nicht gespeichert
     – oder als generierte Spalte). Kein Lagerbestand.
 - **transactions:** id, date, type (expense/sale/refund), description, amount,

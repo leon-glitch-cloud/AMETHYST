@@ -7,6 +7,8 @@ import Link from "next/link";
 export type Bead = {
   id: string;
   article_number: string;
+  name: string | null;
+  material: string | null;
   image_url: string | null;
   size_mm: number | string | null;
   color: string | null;
@@ -29,6 +31,8 @@ export function BeadSearchTable({ beads }: { beads: Bead[] }) {
       const size = bead.size_mm != null ? String(bead.size_mm) : "";
       return (
         bead.article_number.toLowerCase().includes(q) ||
+        (bead.name ?? "").toLowerCase().includes(q) ||
+        (bead.material ?? "").toLowerCase().includes(q) ||
         (bead.color ?? "").toLowerCase().includes(q) ||
         size.includes(q)
       );
@@ -41,7 +45,7 @@ export function BeadSearchTable({ beads }: { beads: Bead[] }) {
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Suche nach Nummer, Farbe, Größe…"
+        placeholder="Suche nach Nummer, Name, Material, Farbe, Größe…"
         className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 outline-none focus:border-gray-500"
       />
 
@@ -76,9 +80,11 @@ export function BeadSearchTable({ beads }: { beads: Bead[] }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-900">
                     {bead.article_number}
+                    {bead.name ? ` · ${bead.name}` : ""}
                   </p>
                   <p className="truncate text-sm text-gray-500">
                     {[
+                      bead.material,
                       bead.color,
                       bead.size_mm != null ? `${bead.size_mm} mm` : null,
                     ]

@@ -15,6 +15,7 @@ export default async function NewBeadPage({
 
       <form action={createBead} className="space-y-4">
         <Field label="Artikelnummer" name="article_number" required />
+        <Field label="Name" name="name" />
 
         <div>
           <label className="mb-1 block text-sm text-gray-600" htmlFor="photo">
@@ -31,6 +32,7 @@ export default async function NewBeadPage({
 
         <Field label="Größe (mm)" name="size_mm" type="number" step="0.1" />
         <Field label="Farbe" name="color" />
+        <Field label="Material" name="material" />
         <Field
           label="Packungspreis (€)"
           name="package_price"
