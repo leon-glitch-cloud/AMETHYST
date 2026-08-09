@@ -419,25 +419,27 @@ export async function confirmMaterialOrder(
     }
   }
 
-  const total = rows.reduce((sum, row) => sum + (row.package_price ?? 0), 0);
+  if (formData.get("book_expense") === "yes") {
+    const total = rows.reduce((sum, row) => sum + (row.package_price ?? 0), 0);
 
-  const { error: transactionError } = await supabase
-    .from("transactions")
-    .insert({
-      date: new Date().toISOString().slice(0, 10),
-      type: "expense",
-      description: `Materialbestellung (${rows.length} Position${
-        rows.length === 1 ? "" : "en"
-      })`,
-      amount: -Math.abs(total),
-    });
+    const { error: transactionError } = await supabase
+      .from("transactions")
+      .insert({
+        date: new Date().toISOString().slice(0, 10),
+        type: "expense",
+        description: `Materialbestellung (${rows.length} Position${
+          rows.length === 1 ? "" : "en"
+        })`,
+        amount: -Math.abs(total),
+      });
 
-  if (transactionError) {
-    redirect(
-      `/beads/import/${materialOrderId}?error=${encodeURIComponent(
-        "Ausgabe konnte nicht gebucht werden"
-      )}`
-    );
+    if (transactionError) {
+      redirect(
+        `/beads/import/${materialOrderId}?error=${encodeURIComponent(
+          "Ausgabe konnte nicht gebucht werden"
+        )}`
+      );
+    }
   }
 
   const { error: statusError } = await supabase

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 
 export type Transaction = {
@@ -11,6 +12,7 @@ export type Transaction = {
   amount: number | string;
   counterparty_name: string | null;
   is_gift: boolean;
+  bracelet_id: string | null;
 };
 
 type DisplayType = "expense" | "sale" | "refund" | "gift";
@@ -131,15 +133,30 @@ export function TransactionFilterList({
               id={`tx-${tx.id}`}
               className="flex scroll-mt-4 items-center justify-between gap-4 px-4 py-3 text-sm"
             >
-              <div className="min-w-0">
-                <p className="truncate text-gray-900">
-                  {tx.description}
-                  {tx.counterparty_name ? ` · ${tx.counterparty_name}` : ""}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {formatDate(tx.date)} · {typeLabels[displayType(tx)]}
-                </p>
-              </div>
+              {tx.bracelet_id ? (
+                <Link
+                  href={`/bracelets/${tx.bracelet_id}?from=/transactions`}
+                  className="min-w-0 transition hover:opacity-70"
+                >
+                  <p className="truncate text-gray-900 underline underline-offset-2">
+                    {tx.description}
+                    {tx.counterparty_name ? ` · ${tx.counterparty_name}` : ""}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {formatDate(tx.date)} · {typeLabels[displayType(tx)]}
+                  </p>
+                </Link>
+              ) : (
+                <div className="min-w-0">
+                  <p className="truncate text-gray-900">
+                    {tx.description}
+                    {tx.counterparty_name ? ` · ${tx.counterparty_name}` : ""}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {formatDate(tx.date)} · {typeLabels[displayType(tx)]}
+                  </p>
+                </div>
+              )}
               <span className="shrink-0 text-gray-900">
                 {currencyFormatter.format(Number(tx.amount))}
               </span>

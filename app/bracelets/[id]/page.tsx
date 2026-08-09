@@ -217,10 +217,14 @@ export default async function BraceletDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; from?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, from } = await searchParams;
+
+  // Nur interne Pfade zulassen (kein "//evil.com"-Open-Redirect-Trick).
+  const backHref =
+    from && from.startsWith("/") && !from.startsWith("//") ? from : "/bracelets";
 
   const bracelet = await getBracelet(id);
   if (!bracelet) {
@@ -309,7 +313,7 @@ export default async function BraceletDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
-      <BackLink href="/bracelets" />
+      <BackLink href={backHref} />
 
       {sizeVariants.length > 1 && (
         <div className="mb-4 flex gap-2">

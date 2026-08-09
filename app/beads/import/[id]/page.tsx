@@ -86,6 +86,11 @@ export default async function MaterialOrderReviewPage({
           originalImageUrl={originalImageUrl}
         />
 
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input type="checkbox" name="book_expense" value="yes" />
+          Als Materialausgabe im Verlauf buchen
+        </label>
+
         {error && <p className="text-sm text-gray-500">{error}</p>}
 
         <div className="flex items-center gap-4 pt-2">
