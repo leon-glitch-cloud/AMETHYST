@@ -11,7 +11,10 @@ import { BackLink } from "@/app/_components/back-link";
 type MaterialOrder = {
   id: string;
   status: "pending" | "confirmed";
-  extracted_json: { items: MaterialOrderItem[] } | null;
+  extracted_json: {
+    items: MaterialOrderItem[];
+    original_image_url: string | null;
+  } | null;
 };
 
 async function getMaterialOrder(id: string): Promise<MaterialOrder | null> {
@@ -62,6 +65,7 @@ export default async function MaterialOrderReviewPage({
 
   const confirmMaterialOrderWithId = confirmMaterialOrder.bind(null, id);
   const items = materialOrder.extracted_json?.items ?? [];
+  const originalImageUrl = materialOrder.extracted_json?.original_image_url ?? null;
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
@@ -76,7 +80,10 @@ export default async function MaterialOrderReviewPage({
       </p>
 
       <form action={confirmMaterialOrderWithId} className="space-y-4">
-        <MaterialOrderItemsEditor initialItems={items} />
+        <MaterialOrderItemsEditor
+          initialItems={items}
+          originalImageUrl={originalImageUrl}
+        />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}
 

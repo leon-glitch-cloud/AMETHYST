@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Image from "next/image";
 import { productSearchUrl } from "@/lib/beads";
 import { ProductSearchButton } from "@/app/_components/product-search-button";
+import { uploadCroppedBeadPhoto } from "@/app/beads/import/actions";
+import { BeadPhotoCropper, type PhotoBbox } from "./bead-photo-cropper";
 
 export type MaterialOrderItem = {
   article_number: string;
@@ -15,6 +17,7 @@ export type MaterialOrderItem = {
   shop: string | null;
   package_quantity: number;
   image_url: string | null;
+  photo_bbox: PhotoBbox | null;
 };
 
 type Row = {
@@ -28,6 +31,8 @@ type Row = {
   shop: string;
   packageQuantity: string;
   imageUrl: string;
+  photoBbox: PhotoBbox | null;
+  showCropper: boolean;
 };
 
 function itemToRow(item: MaterialOrderItem): Row {
@@ -42,6 +47,8 @@ function itemToRow(item: MaterialOrderItem): Row {
     shop: item.shop ?? "",
     packageQuantity: String(item.package_quantity),
     imageUrl: item.image_url ?? "",
+    photoBbox: item.photo_bbox,
+    showCropper: false,
   };
 }
 
@@ -88,10 +95,14 @@ function LabeledInput({
 
 export function MaterialOrderItemsEditor({
   initialItems = [],
+  originalImageUrl = null,
 }: {
   initialItems?: MaterialOrderItem[];
+  originalImageUrl?: string | null;
 }) {
   const [rows, setRows] = useState<Row[]>(() => initialItems.map(itemToRow));
+  const [isSaving, startSaving] = useTransition();
+  const [cropError, setCropError] = useState<string | null>(null);
 
   function addRow() {
     setRows((prev) => [
@@ -107,6 +118,8 @@ export function MaterialOrderItemsEditor({
         shop: "",
         packageQuantity: "1",
         imageUrl: "",
+        photoBbox: null,
+        showCropper: false,
       },
     ]);
   }
@@ -119,6 +132,20 @@ export function MaterialOrderItemsEditor({
     setRows((prev) =>
       prev.map((row) => (row.key === key ? { ...row, ...patch } : row))
     );
+  }
+
+  function handleCropped(key: string, file: File) {
+    setCropError(null);
+    const formData = new FormData();
+    formData.set("photo", file);
+    startSaving(async () => {
+      const result = await uploadCroppedBeadPhoto(formData);
+      if (result.ok) {
+        updateRow(key, { imageUrl: result.url, showCropper: false });
+      } else {
+        setCropError(result.message);
+      }
+    });
   }
 
   return (
@@ -145,6 +172,17 @@ export function MaterialOrderItemsEditor({
                 </div>
               )}
               <input type="hidden" name="image_url" value={row.imageUrl} />
+              {originalImageUrl && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateRow(row.key, { showCropper: !row.showCropper })
+                  }
+                  className="text-sm text-gray-500 hover:text-gray-900"
+                >
+                  {row.showCropper ? "Zuschneiden schließen" : "Foto anpassen"}
+                </button>
+              )}
               <div className="flex-1" />
               <button
                 type="button"
@@ -154,6 +192,22 @@ export function MaterialOrderItemsEditor({
                 Entfernen
               </button>
             </div>
+
+            {row.showCropper && originalImageUrl && (
+              <div className="mb-3">
+                <BeadPhotoCropper
+                  imageUrl={originalImageUrl}
+                  initialBbox={row.photoBbox}
+                  isSaving={isSaving}
+                  onCropped={(file) => handleCropped(row.key, file)}
+                  onCancel={() => updateRow(row.key, { showCropper: false })}
+                />
+                {cropError && (
+                  <p className="mt-2 text-sm text-gray-500">{cropError}</p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <LabeledInput
                 id={`${row.key}-name`}

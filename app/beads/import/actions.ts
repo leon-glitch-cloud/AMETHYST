@@ -2,11 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { uploadPrivateFile } from "@/lib/supabase/storage";
+import { uploadPrivateFile, uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createClaudeClient, logClaudeError, toImageMediaType } from "@/lib/claude";
 import { productSearchUrl } from "@/lib/beads";
+
+type PhotoBbox = { x: number; y: number; width: number; height: number };
 
 type ExtractedItem = {
   article_number: string;
@@ -18,6 +21,7 @@ type ExtractedItem = {
   shop: string | null;
   package_quantity: number;
   image_url: string | null;
+  photo_bbox: PhotoBbox | null;
 };
 
 const MATERIAL_ORDER_SCHEMA = {
@@ -40,6 +44,19 @@ const MATERIAL_ORDER_SCHEMA = {
           package_price: { type: ["number", "null"] },
           shop: { type: ["string", "null"] },
           package_quantity: { type: "integer" },
+          photo_bbox: {
+            type: ["object", "null"],
+            description:
+              "Nur falls die hochgeladene Datei ein Bild mit einem klar erkennbaren Produktfoto der Perle ist (z. B. Screenshot einer Shop-Seite): möglichst eng geschätzte Position NUR des Fotos selbst, als Anteile 0–1 der Gesamtbildgröße. Lieber zu knapp als zu großzügig — kein Rand, kein Hintergrund, kein Text/UI darf enthalten sein, auch nicht angeschnitten. Sonst null.",
+            properties: {
+              x: { type: "number" },
+              y: { type: "number" },
+              width: { type: "number" },
+              height: { type: "number" },
+            },
+            required: ["x", "y", "width", "height"],
+            additionalProperties: false,
+          },
         },
         required: [
           "article_number",
@@ -50,6 +67,7 @@ const MATERIAL_ORDER_SCHEMA = {
           "package_price",
           "shop",
           "package_quantity",
+          "photo_bbox",
         ],
         additionalProperties: false,
       },
@@ -134,7 +152,7 @@ export async function createMaterialOrderUpload(formData: FormData) {
           content: [
             {
               type: "text",
-              text: 'Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Name/Bezeichnung der Perle (z. B. "Donut"), Material (z. B. "Edelstahl vg."), Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Falls ein Wert nicht erkennbar ist, das jeweilige Feld leer lassen (null), nichts raten.\n\nFarbe: schreibe NUR eine oder mehrere dieser Basisfarben, kommagetrennt, keine Fantasie- oder Produktnamen: rot, gelb, blau, grün, violett, orange, weiß, schwarz, rosa, braun, grau. Übersetze Fantasienamen in die passende(n) Basisfarbe(n), z. B. "Honig Cognac" → "orange", "Bernstein" → "orange,gelb".\n\nAntworte ausschließlich mit dem geforderten JSON.',
+              text: 'Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Name/Bezeichnung der Perle (z. B. "Donut"), Material (z. B. "Edelstahl vg."), Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Falls ein Wert nicht erkennbar ist, das jeweilige Feld leer lassen (null), nichts raten.\n\nFarbe: schreibe NUR eine oder mehrere dieser Basisfarben, kommagetrennt, keine Fantasie- oder Produktnamen: rot, gelb, blau, grün, violett, orange, weiß, schwarz, rosa, braun, grau. Übersetze Fantasienamen in die passende(n) Basisfarbe(n), z. B. "Honig Cognac" → "orange", "Bernstein" → "orange,gelb".\n\nphoto_bbox: falls die Datei ein Bild mit einem klar erkennbaren Produktfoto der Perle ist, gib zusätzlich die Position NUR dieses Fotos an (x/y = linke obere Ecke, width/height = Breite/Höhe, jeweils als Anteil 0–1 der Gesamtbildgröße). Schätze die Box so eng wie möglich um das Foto herum — lieber etwas zu knapp (kleiner) als zu großzügig. Kein Rand, kein Hintergrund, keine Artikelnummer/Preis/Beschreibung/Buttons dürfen in der Box enthalten sein, auch nicht teilweise (z. B. keine angeschnittene Textzeile am unteren Rand der Box). Bei mehreren Fotos in einem Bild jeder Position ihr eigenes Foto zuordnen. Falls kein eindeutiges Produktfoto erkennbar ist oder die Datei kein Bild ist, photo_bbox auf null setzen.\n\nAntworte ausschließlich mit dem geforderten JSON.',
             },
             fileBlock,
           ],
@@ -179,10 +197,75 @@ export async function createMaterialOrderUpload(formData: FormData) {
 
   // Automatisches Bild-Ausschneiden per Code-Execution-Tool wurde entfernt
   // (zweiter voller Modell-Aufruf mit erneuter Datei-Übertragung war teuer).
-  // Fotos werden stattdessen manuell über den "Foto hinzufügen"-Button an der
-  // Perle ergänzt, ggf. mithilfe des automatisch erzeugten Shop-Suchlinks.
-
+  // Stattdessen liefert die ohnehin schon bezahlte Text-Extraktion oben
+  // pro Position eine Bounding-Box fürs Produktfoto mit, die hier lokal
+  // per sharp zugeschnitten wird — kein zweiter KI-Aufruf nötig. Das
+  // Original-Bild wird zusätzlich öffentlich hochgeladen, damit der
+  // Zuschnitt im Prüfformular manuell nachjustiert werden kann.
   const id = crypto.randomUUID();
+  let originalImageUrl: string | null = null;
+
+  if (isImage) {
+    try {
+      originalImageUrl = await uploadPublicImage(
+        "bead-photos",
+        `${id}/original-${file.name}`,
+        file
+      );
+    } catch (err) {
+      logClaudeError("createMaterialOrderUpload:original-upload", err);
+    }
+
+    try {
+      const sourceImage = sharp(Buffer.from(bytes));
+      const metadata = await sourceImage.metadata();
+      const imgWidth = metadata.width ?? 0;
+      const imgHeight = metadata.height ?? 0;
+
+      if (imgWidth > 0 && imgHeight > 0) {
+        for (let i = 0; i < items.length; i++) {
+          const bbox = items[i].photo_bbox;
+          if (!bbox) continue;
+
+          const left = Math.max(0, Math.round(bbox.x * imgWidth));
+          const top = Math.max(0, Math.round(bbox.y * imgHeight));
+          const width = Math.min(
+            imgWidth - left,
+            Math.round(bbox.width * imgWidth)
+          );
+          const height = Math.min(
+            imgHeight - top,
+            Math.round(bbox.height * imgHeight)
+          );
+          if (width <= 0 || height <= 0) continue;
+
+          try {
+            const croppedBuffer = await sharp(Buffer.from(bytes))
+              .extract({ left, top, width, height })
+              .png()
+              .toBuffer();
+            const croppedFile = new File(
+              [new Uint8Array(croppedBuffer)],
+              `${items[i].article_number || i}.png`,
+              { type: "image/png" }
+            );
+            const imageUrl = await uploadPublicImage(
+              "bead-photos",
+              `${id}/${croppedFile.name}`,
+              croppedFile
+            );
+            items[i].image_url = imageUrl;
+          } catch (err) {
+            logClaudeError("createMaterialOrderUpload:crop-item", err);
+          }
+        }
+      }
+    } catch (err) {
+      // Bild-Zuschnitt ist optional, Rest des Flows läuft unverändert weiter.
+      logClaudeError("createMaterialOrderUpload:crop", err);
+    }
+  }
+
   const extension = file.name.split(".").pop() || (isPdf ? "pdf" : "jpg");
   const filePath = `${id}/bestellung.${extension}`;
 
@@ -198,7 +281,7 @@ export async function createMaterialOrderUpload(formData: FormData) {
   const { error } = await supabase.from("material_orders").insert({
     id,
     file_url: filePath,
-    extracted_json: { items },
+    extracted_json: { items, original_image_url: originalImageUrl },
     status: "pending",
   });
 
@@ -211,6 +294,27 @@ export async function createMaterialOrderUpload(formData: FormData) {
   }
 
   redirect(`/beads/import/${id}`);
+}
+
+export async function uploadCroppedBeadPhoto(
+  formData: FormData
+): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    return { ok: false, message: "Kein zugeschnittenes Bild erhalten" };
+  }
+
+  try {
+    const url = await uploadPublicImage(
+      "bead-photos",
+      `${crypto.randomUUID()}/${photo.name}`,
+      photo
+    );
+    return { ok: true, url };
+  } catch (err) {
+    logClaudeError("uploadCroppedBeadPhoto", err);
+    return { ok: false, message: "Foto konnte nicht gespeichert werden" };
+  }
 }
 
 type MaterialOrderRow = {
