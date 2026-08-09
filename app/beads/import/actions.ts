@@ -31,7 +31,11 @@ const MATERIAL_ORDER_SCHEMA = {
           article_number: { type: "string" },
           name: { type: ["string", "null"] },
           material: { type: ["string", "null"] },
-          color: { type: ["string", "null"] },
+          color: {
+            type: ["string", "null"],
+            description:
+              "Nur Basisfarben: rot, gelb, blau, grün, violett, orange, weiß, schwarz, rosa, braun, grau. Bei Mischtönen/Fantasienamen (z. B. \"Honig Cognac\", \"Bernstein\") die passende(n) Basisfarbe(n) kommagetrennt eintragen, keine Fantasie-/Markennamen übernehmen.",
+          },
           size_mm: { type: ["number", "null"] },
           package_price: { type: ["number", "null"] },
           shop: { type: ["string", "null"] },
@@ -130,7 +134,7 @@ export async function createMaterialOrderUpload(formData: FormData) {
           content: [
             {
               type: "text",
-              text: "Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Name/Bezeichnung der Perle (z. B. \"Donut\"), Material (z. B. \"Edelstahl vg.\"), Farbe, Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Falls ein Wert nicht erkennbar ist, das jeweilige Feld leer lassen (null), nichts raten. Antworte ausschließlich mit dem geforderten JSON.",
+              text: 'Hier ist eine Bestellbestätigung/Materialliste für Perlen-Nachschub. Lies pro Position aus: Artikelnummer, Name/Bezeichnung der Perle (z. B. "Donut"), Material (z. B. "Edelstahl vg."), Größe (mm), Shop/Händler (falls erkennbar), den Packungspreis (was diese Packung/dieser Strang gekostet hat) und die Packungsmenge (wie viele Perlen darin enthalten sind, z. B. Perlen pro Strang). Falls ein Wert nicht erkennbar ist, das jeweilige Feld leer lassen (null), nichts raten.\n\nFarbe: schreibe NUR eine oder mehrere dieser Basisfarben, kommagetrennt, keine Fantasie- oder Produktnamen: rot, gelb, blau, grün, violett, orange, weiß, schwarz, rosa, braun, grau. Übersetze Fantasienamen in die passende(n) Basisfarbe(n), z. B. "Honig Cognac" → "orange", "Bernstein" → "orange,gelb".\n\nAntworte ausschließlich mit dem geforderten JSON.',
             },
             fileBlock,
           ],
