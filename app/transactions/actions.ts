@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseNumber, parseText } from "@/lib/forms";
 
@@ -35,6 +36,7 @@ export async function createExpense(formData: FormData) {
     );
   }
 
+  revalidatePath("/");
   redirect("/transactions");
 }
 
@@ -50,5 +52,6 @@ export async function deleteTransaction(id: string) {
     );
   }
 
+  revalidatePath("/");
   redirect("/transactions");
 }

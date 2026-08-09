@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { completeOrder, cancelOrder } from "@/app/orders/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
+import { BackLink } from "@/app/_components/back-link";
 
 type OrderDetail = {
   id: string;
@@ -53,6 +54,8 @@ export default async function OrderDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/" />
+
       <h1 className="mb-1 text-2xl font-medium text-gray-900">
         {order.customer_name}
       </h1>

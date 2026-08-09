@@ -9,6 +9,7 @@ import {
   deleteBracelet,
 } from "@/app/bracelets/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
+import { BackLink } from "@/app/_components/back-link";
 
 type Bracelet = {
   id: string;
@@ -196,6 +197,8 @@ export default async function BraceletDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
+      <BackLink href="/bracelets" />
+
       <div className="mb-6 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-medium text-gray-900">
           {bracelet.name}

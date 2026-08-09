@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createMaterialOrderUpload } from "@/app/beads/import/actions";
 import { FileUploadField } from "@/app/_components/file-upload-field";
+import { BackLink } from "@/app/_components/back-link";
 
 export default async function ImportMaterialOrderPage({
   searchParams,
@@ -11,6 +12,8 @@ export default async function ImportMaterialOrderPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/beads" />
+
       <h1 className="mb-2 text-2xl font-medium text-gray-900">
         Bestellliste importieren
       </h1>

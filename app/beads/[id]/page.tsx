@@ -7,6 +7,7 @@ import { Field } from "@/app/beads/_components/field";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 import { FileUploadField } from "@/app/_components/file-upload-field";
 import { ProductSearchButton } from "@/app/_components/product-search-button";
+import { BackLink } from "@/app/_components/back-link";
 
 type Bead = {
   id: string;
@@ -64,6 +65,8 @@ export default async function BeadDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/beads" />
+
       <h1 className="mb-6 text-2xl font-medium text-gray-900">
         Perle bearbeiten
       </h1>

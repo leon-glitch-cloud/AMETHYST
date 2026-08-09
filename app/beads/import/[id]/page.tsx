@@ -6,6 +6,7 @@ import {
   MaterialOrderItemsEditor,
   type MaterialOrderItem,
 } from "@/app/beads/import/_components/material-order-items-editor";
+import { BackLink } from "@/app/_components/back-link";
 
 type MaterialOrder = {
   id: string;
@@ -51,7 +52,7 @@ export default async function MaterialOrderReviewPage({
         </p>
         <Link
           href="/beads"
-          className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
+          className="inline-flex items-center gap-0.5 text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
         >
           Zurück zum Perlenbestand
         </Link>
@@ -64,6 +65,8 @@ export default async function MaterialOrderReviewPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/beads/import" />
+
       <h1 className="mb-2 text-2xl font-medium text-gray-900">
         Bestellliste prüfen
       </h1>

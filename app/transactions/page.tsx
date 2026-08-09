@@ -5,6 +5,7 @@ import {
   TransactionFilterList,
   type Transaction,
 } from "@/app/transactions/_components/transaction-filter-list";
+import { BackLink } from "@/app/_components/back-link";
 
 async function getTransactions(): Promise<Transaction[]> {
   try {
@@ -31,6 +32,8 @@ export default async function TransactionsPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
+      <BackLink href="/" />
+
       <h1 className="mb-6 text-2xl font-medium text-gray-900">Verlauf</h1>
 
       <section className="mb-8 rounded-lg border border-gray-200 bg-white p-4">

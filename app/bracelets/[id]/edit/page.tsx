@@ -8,6 +8,7 @@ import {
   type BeadItem,
 } from "@/app/bracelets/_components/bead-picker";
 import { BraceletBeadSection } from "@/app/bracelets/_components/bracelet-bead-section";
+import { BackLink } from "@/app/_components/back-link";
 
 type Bracelet = {
   id: string;
@@ -83,6 +84,8 @@ export default async function EditBraceletPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href={`/bracelets/${id}`} />
+
       <h1 className="mb-6 text-2xl font-medium text-gray-900">
         Armband bearbeiten
       </h1>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createBracelet } from "@/app/bracelets/actions";
 import { Field } from "@/app/beads/_components/field";
 import { FileUploadField } from "@/app/_components/file-upload-field";
+import { BackLink } from "@/app/_components/back-link";
 
 export default async function NewBraceletPage({
   searchParams,
@@ -12,6 +13,8 @@ export default async function NewBraceletPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/bracelets" />
+
       <h1 className="mb-6 text-2xl font-medium text-gray-900">
         Neues Armband
       </h1>

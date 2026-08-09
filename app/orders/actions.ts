@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createSaleTransaction } from "@/lib/sales";
@@ -36,6 +37,7 @@ export async function createOrder(formData: FormData) {
     );
   }
 
+  revalidatePath("/");
   redirect("/");
 }
 
@@ -93,6 +95,7 @@ export async function completeOrder(orderId: string, formData: FormData) {
     );
   }
 
+  revalidatePath("/");
   redirect(`/orders/${orderId}`);
 }
 
@@ -111,5 +114,6 @@ export async function cancelOrder(orderId: string) {
     );
   }
 
+  revalidatePath("/");
   redirect(`/orders/${orderId}`);
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { BackLink } from "@/app/_components/back-link";
 
 type Bracelet = {
   id: string;
@@ -60,6 +61,8 @@ export default async function BraceletsPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-12">
+      <BackLink href="/" />
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-medium text-gray-900">Armbandbestand</h1>
         <Link

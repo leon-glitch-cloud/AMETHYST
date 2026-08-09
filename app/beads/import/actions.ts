@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPrivateFile } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
@@ -344,5 +345,7 @@ export async function confirmMaterialOrder(
     );
   }
 
+  revalidatePath("/beads");
+  revalidatePath("/");
   redirect("/beads");
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createOrder } from "@/app/orders/actions";
+import { BackLink } from "@/app/_components/back-link";
 
 type BraceletOption = { id: string; name: string };
 
@@ -28,6 +29,8 @@ export default async function NewOrderPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/" />
+
       <h1 className="mb-6 text-2xl font-medium text-gray-900">
         Neue Bestellung
       </h1>

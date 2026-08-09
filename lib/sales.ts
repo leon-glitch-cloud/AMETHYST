@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type CreateSaleResult =
@@ -43,6 +44,8 @@ export async function createSaleTransaction({
     return { ok: false, message: "Verkauf konnte nicht gespeichert werden" };
   }
 
+  revalidatePath("/");
+
   if (!braceletId) {
     return { ok: true, saleId: null };
   }
@@ -63,6 +66,8 @@ export async function createSaleTransaction({
     await supabase.from("transactions").delete().eq("id", transactionRow.id);
     return { ok: false, message: "Verkauf konnte nicht gespeichert werden" };
   }
+
+  revalidatePath("/bracelets");
 
   return { ok: true, saleId: saleRow.id };
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
@@ -93,6 +94,8 @@ export async function createBracelet(formData: FormData) {
       `/bracelets/new?error=${encodeURIComponent("Armband konnte nicht gespeichert werden")}`
     );
   }
+
+  revalidatePath("/bracelets");
 
   let beadDetectionError: string | null = null;
 
@@ -197,6 +200,7 @@ export async function updateBracelet(id: string, formData: FormData) {
     await supabase.from("bracelet_beads").delete().in("id", oldIds);
   }
 
+  revalidatePath("/bracelets");
   redirect(`/bracelets/${id}`);
 }
 
@@ -210,6 +214,7 @@ export async function deleteBracelet(id: string) {
     );
   }
 
+  revalidatePath("/bracelets");
   redirect("/bracelets");
 }
 
@@ -235,6 +240,7 @@ export async function recordLoan(braceletId: string, formData: FormData) {
     );
   }
 
+  revalidatePath("/bracelets");
   redirect(`/bracelets/${braceletId}`);
 }
 
@@ -253,6 +259,7 @@ export async function returnLoan(loanId: string, braceletId: string) {
     );
   }
 
+  revalidatePath("/bracelets");
   redirect(`/bracelets/${braceletId}`);
 }
 

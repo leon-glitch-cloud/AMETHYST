@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createBead } from "@/app/beads/actions";
 import { Field } from "@/app/beads/_components/field";
 import { FileUploadField } from "@/app/_components/file-upload-field";
+import { BackLink } from "@/app/_components/back-link";
 
 export default async function NewBeadPage({
   searchParams,
@@ -12,6 +13,8 @@ export default async function NewBeadPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
+      <BackLink href="/beads" />
+
       <h1 className="mb-6 text-2xl font-medium text-gray-900">Neue Perle</h1>
 
       <form action={createBead} className="space-y-4">

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
@@ -60,6 +61,7 @@ export async function createBead(formData: FormData) {
     );
   }
 
+  revalidatePath("/beads");
   redirect("/beads");
 }
 
@@ -99,6 +101,7 @@ export async function updateBead(id: string, formData: FormData) {
     );
   }
 
+  revalidatePath("/beads");
   redirect("/beads");
 }
 
@@ -114,5 +117,6 @@ export async function deleteBead(id: string) {
     redirect(`/beads/${id}?error=${encodeURIComponent(message)}`);
   }
 
+  revalidatePath("/beads");
   redirect("/beads");
 }
