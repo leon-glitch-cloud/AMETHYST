@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import sharp from "sharp";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
@@ -218,6 +219,128 @@ export async function deleteBracelet(id: string) {
   redirect("/bracelets");
 }
 
+const BRACELET_SIZES = ["S", "M", "L"] as const;
+type BraceletSize = (typeof BRACELET_SIZES)[number];
+
+function isBraceletSize(value: unknown): value is BraceletSize {
+  return typeof value === "string" && (BRACELET_SIZES as readonly string[]).includes(value);
+}
+
+export async function addBraceletSizeVariant(
+  braceletId: string,
+  formData: FormData
+) {
+  const newSizeRaw = formData.get("new_size");
+  if (!isBraceletSize(newSizeRaw)) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Bitte eine gültige Größe auswählen"
+      )}`
+    );
+  }
+  const newSize = newSizeRaw;
+
+  const supabase = createSupabaseServerClient();
+  const { data: bracelet, error: braceletError } = await supabase
+    .from("bracelets")
+    .select("id, name, photo_url, notes, size, variant_group_id")
+    .eq("id", braceletId)
+    .maybeSingle();
+
+  if (braceletError || !bracelet) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Armband nicht gefunden"
+      )}`
+    );
+  }
+
+  let groupId = bracelet.variant_group_id;
+  let currentSize = bracelet.size;
+
+  if (!groupId) {
+    const currentSizeRaw = formData.get("current_size");
+    if (!isBraceletSize(currentSizeRaw)) {
+      redirect(
+        `/bracelets/${braceletId}?error=${encodeURIComponent(
+          "Bitte auch die Größe des aktuellen Armbands auswählen"
+        )}`
+      );
+    }
+    if (currentSizeRaw === newSize) {
+      redirect(
+        `/bracelets/${braceletId}?error=${encodeURIComponent(
+          "Die neue Größe muss sich von der aktuellen unterscheiden"
+        )}`
+      );
+    }
+    currentSize = currentSizeRaw;
+    groupId = crypto.randomUUID();
+
+    const { error: updateError } = await supabase
+      .from("bracelets")
+      .update({ size: currentSize, variant_group_id: groupId })
+      .eq("id", braceletId);
+    if (updateError) {
+      redirect(
+        `/bracelets/${braceletId}?error=${encodeURIComponent(
+          "Größe konnte nicht gespeichert werden"
+        )}`
+      );
+    }
+  } else {
+    const { data: siblings } = await supabase
+      .from("bracelets")
+      .select("size")
+      .eq("variant_group_id", groupId);
+    if ((siblings ?? []).some((sibling) => sibling.size === newSize)) {
+      redirect(
+        `/bracelets/${braceletId}?error=${encodeURIComponent(
+          `Größe ${newSize} gibt es in dieser Gruppe schon`
+        )}`
+      );
+    }
+  }
+
+  const { data: beadRows } = await supabase
+    .from("bracelet_beads")
+    .select("bead_id, quantity, unknown_description")
+    .eq("bracelet_id", braceletId);
+
+  const newId = crypto.randomUUID();
+  const { error: insertError } = await supabase.from("bracelets").insert({
+    id: newId,
+    name: bracelet.name,
+    photo_url: bracelet.photo_url,
+    notes: bracelet.notes,
+    made_count: 0,
+    size: newSize,
+    variant_group_id: groupId,
+  });
+
+  if (insertError) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Neue Größe konnte nicht angelegt werden"
+      )}`
+    );
+  }
+
+  if (beadRows && beadRows.length > 0) {
+    await supabase.from("bracelet_beads").insert(
+      beadRows.map((row) => ({
+        bracelet_id: newId,
+        bead_id: row.bead_id,
+        quantity: row.quantity,
+        unknown_description: row.unknown_description,
+      }))
+    );
+  }
+
+  revalidatePath("/bracelets");
+  redirect(`/bracelets/${newId}`);
+}
+
 export async function recordLoan(braceletId: string, formData: FormData) {
   const borrowerName = parseText(formData.get("borrower_name"));
   if (!borrowerName) {
@@ -330,7 +453,6 @@ const BEAD_SUGGESTION_SCHEMA = {
 
 type SuggestionContentBlock =
   | { type: "text"; text: string }
-  | { type: "image"; source: { type: "url"; url: string } }
   | {
       type: "image";
       source: {
@@ -367,22 +489,57 @@ async function suggestBeadItemsFromPhoto(
       };
     }
 
-    const bytes = await photo.arrayBuffer();
-    const base64 = Buffer.from(bytes).toString("base64");
-    const mediaType = toImageMediaType(photo.type);
+    // Anthropic lehnt Anfragen mit vielen Bildern ab, sobald eins davon
+    // eine Kante über 2000px hat ("many-image requests" limit) — und die
+    // Gesamtanfrage hat zusätzlich ein Größenlimit, das mit wachsendem
+    // Perlenkatalog schnell erreicht ist. Neu hochgeladene Fotos werden
+    // schon beim Upload verkleinert, aber ältere Referenzfotos könnten
+    // noch groß sein — deshalb hier zur Sicherheit nochmal verkleinern
+    // und als JPEG komprimieren, statt sie unverändert durchzureichen.
+    const resizedBytes = await sharp(Buffer.from(await photo.arrayBuffer()))
+      .resize({ width: 1568, height: 1568, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    const base64 = resizedBytes.toString("base64");
+    const mediaType: ReturnType<typeof toImageMediaType> = "image/jpeg";
 
     const content: SuggestionContentBlock[] = [];
 
     for (const bead of beads) {
       if (!bead.image_url) continue;
-      content.push({
-        type: "text",
-        text: `Referenzbild für Perle "${bead.article_number}" (Farbe: ${bead.color ?? "unbekannt"}, Größe: ${bead.size_mm ?? "unbekannt"}mm):`,
-      });
-      content.push({
-        type: "image",
-        source: { type: "url", url: bead.image_url },
-      });
+      try {
+        const refResponse = await fetch(bead.image_url);
+        if (!refResponse.ok) continue;
+        // Referenzfotos müssen nur zum groben Farb-/Formvergleich reichen,
+        // nicht hochauflösend sein — klein halten, damit die Gesamtanfrage
+        // auch bei einem großen Perlenkatalog unter dem Größenlimit bleibt.
+        const refBuffer = await sharp(
+          Buffer.from(await refResponse.arrayBuffer())
+        )
+          .resize({
+            width: 500,
+            height: 500,
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: 70 })
+          .toBuffer();
+        const refMediaType: ReturnType<typeof toImageMediaType> = "image/jpeg";
+        content.push({
+          type: "text",
+          text: `Referenzbild für Perle "${bead.article_number}" (Farbe: ${bead.color ?? "unbekannt"}, Größe: ${bead.size_mm ?? "unbekannt"}mm):`,
+        });
+        content.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: refMediaType,
+            data: refBuffer.toString("base64"),
+          },
+        });
+      } catch (err) {
+        logClaudeError("suggestBeadsFromPhoto:reference-photo", err);
+      }
     }
 
     const catalogText = beads
@@ -444,15 +601,26 @@ async function suggestBeadItemsFromPhoto(
       }[];
     };
 
+    console.log("[suggestBeadsFromPhoto] Claude-Vorschlag vs. Katalog", {
+      claudeItems: parsed.items,
+      catalogArticleNumbers: beads.map((bead) => bead.article_number),
+    });
+
+    function normalizeArticleNumber(value: string): string {
+      return value.trim().toLowerCase();
+    }
+
     const beadsByArticleNumber = new Map(
-      beads.map((bead) => [bead.article_number, bead.id])
+      beads.map((bead) => [normalizeArticleNumber(bead.article_number), bead.id])
     );
 
     const items = parsed.items
       .filter((item) => item.quantity > 0)
       .map((item) => {
         const beadId = item.article_number
-          ? (beadsByArticleNumber.get(item.article_number) ?? null)
+          ? (beadsByArticleNumber.get(
+              normalizeArticleNumber(item.article_number)
+            ) ?? null)
           : null;
         return {
           bead_id: beadId,

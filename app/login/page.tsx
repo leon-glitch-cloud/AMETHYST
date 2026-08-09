@@ -5,6 +5,7 @@ import {
   SESSION_DURATION_MS,
   createSessionCookieValue,
 } from "@/lib/auth/session";
+import { SubmitButton } from "@/app/_components/submit-button";
 
 async function login(formData: FormData) {
   "use server";
@@ -59,12 +60,12 @@ export default async function LoginPage({
           {error === "1" && (
             <p className="text-sm text-gray-500">Falsches Passwort.</p>
           )}
-          <button
-            type="submit"
-            className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+          <SubmitButton
+            pendingLabel="Anmelden…"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
             Anmelden
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </main>

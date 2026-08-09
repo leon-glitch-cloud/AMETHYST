@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { updateBracelet } from "@/app/bracelets/actions";
@@ -9,6 +10,7 @@ import {
 } from "@/app/bracelets/_components/bead-picker";
 import { BraceletBeadSection } from "@/app/bracelets/_components/bracelet-bead-section";
 import { BackLink } from "@/app/_components/back-link";
+import { SubmitButton } from "@/app/_components/submit-button";
 
 type Bracelet = {
   id: string;
@@ -52,7 +54,7 @@ async function getAllBeads(): Promise<BeadOption[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("beads")
-      .select("id, article_number, color, size_mm, unit_price")
+      .select("id, article_number, name, image_url, color, size_mm, unit_price")
       .order("article_number", { ascending: true });
     if (error || !data) return [];
     return data;
@@ -89,6 +91,19 @@ export default async function EditBraceletPage({
       <h1 className="mb-6 text-2xl font-medium text-gray-900">
         Armband bearbeiten
       </h1>
+
+      {bracelet.photo_url && (
+        <div className="relative mb-6 overflow-hidden rounded-lg bg-gray-100">
+          <Image
+            src={bracelet.photo_url}
+            alt={bracelet.name}
+            width={1200}
+            height={1200}
+            sizes="(min-width: 672px) 640px, 100vw"
+            className="h-auto w-full"
+          />
+        </div>
+      )}
 
       <form action={updateBraceletWithId} className="space-y-4">
         <Field
@@ -128,12 +143,7 @@ export default async function EditBraceletPage({
         {error && <p className="text-sm text-gray-500">{error}</p>}
 
         <div className="flex items-center gap-4 pt-2">
-          <button
-            type="submit"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-          >
-            Speichern
-          </button>
+          <SubmitButton pendingLabel="Speichert…">Speichern</SubmitButton>
           <Link
             href={`/bracelets/${id}`}
             className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"

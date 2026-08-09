@@ -1,10 +1,13 @@
 "use client";
 
 import { forwardRef, useImperativeHandle, useState } from "react";
+import Image from "next/image";
 
 export type BeadOption = {
   id: string;
   article_number: string;
+  name: string | null;
+  image_url: string | null;
   color: string | null;
   size_mm: number | string | null;
   unit_price: number | string | null;
@@ -22,10 +25,11 @@ const currencyFormatter = new Intl.NumberFormat("de-DE", {
 });
 
 function beadLabel(bead: BeadOption): string {
+  const idPart = [bead.article_number, bead.name].filter(Boolean).join(" · ");
   const details = [bead.color, bead.size_mm != null ? `${bead.size_mm} mm` : null]
     .filter(Boolean)
     .join(" · ");
-  return details ? `${bead.article_number} (${details})` : bead.article_number;
+  return details ? `${idPart} (${details})` : idPart;
 }
 
 export type BeadPickerHandle = {
@@ -117,8 +121,20 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
         </p>
       ) : (
         <div className="space-y-2">
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const selectedBead = beadsById.get(row.beadId);
+            return (
             <div key={row.key} className="flex items-center gap-2">
+              {selectedBead?.image_url && (
+                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-gray-100">
+                  <Image
+                    src={selectedBead.image_url}
+                    alt={selectedBead.article_number}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
               <select
                 name="bead_id"
                 value={row.beadId}
@@ -174,7 +190,8 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
                 Entfernen
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

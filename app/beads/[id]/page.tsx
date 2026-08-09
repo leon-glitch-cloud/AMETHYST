@@ -8,6 +8,7 @@ import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 import { FileUploadField } from "@/app/_components/file-upload-field";
 import { ProductSearchButton } from "@/app/_components/product-search-button";
 import { BackLink } from "@/app/_components/back-link";
+import { SubmitButton } from "@/app/_components/submit-button";
 
 type Bead = {
   id: string;
@@ -50,22 +51,25 @@ export default async function BeadDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; from?: string }>;
 }) {
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, from } = await searchParams;
   const bead = await getBead(id);
 
   if (!bead) {
     notFound();
   }
 
+  // Nur interne Pfade zulassen (kein "//evil.com"-Open-Redirect-Trick).
+  const backHref = from && from.startsWith("/") && !from.startsWith("//") ? from : "/beads";
+
   const updateBeadWithId = updateBead.bind(null, id);
   const deleteBeadWithId = deleteBead.bind(null, id);
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
-      <BackLink href="/beads" />
+      <BackLink href={backHref} />
 
       <h1 className="mb-6 text-2xl font-medium text-gray-900">
         Perle bearbeiten
@@ -150,14 +154,9 @@ export default async function BeadDetailPage({
         {error && <p className="text-sm text-gray-500">{error}</p>}
 
         <div className="flex items-center gap-4 pt-2">
-          <button
-            type="submit"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-          >
-            Speichern
-          </button>
+          <SubmitButton pendingLabel="Speichert…">Speichern</SubmitButton>
           <Link
-            href="/beads"
+            href={backHref}
             className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
           >
             Zurück

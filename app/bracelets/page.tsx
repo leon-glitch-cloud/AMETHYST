@@ -8,6 +8,7 @@ type Bracelet = {
   name: string;
   photo_url: string | null;
   made_count: number;
+  size: string | null;
 };
 
 type Counts = {
@@ -20,7 +21,7 @@ async function getBracelets(): Promise<Bracelet[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelets")
-      .select("id, name, photo_url, made_count")
+      .select("id, name, photo_url, made_count, size")
       .order("name", { ascending: true });
     if (error || !data) return [];
     return data;
@@ -113,6 +114,11 @@ export default async function BraceletsPage() {
                   <div className="p-4">
                     <p className="mb-1 text-sm font-medium text-gray-900">
                       {bracelet.name}
+                      {bracelet.size && (
+                        <span className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
+                          {bracelet.size}
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-gray-500">
                       {Math.max(inStock, 0)} auf Lager · {loaned} verliehen ·{" "}

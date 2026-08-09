@@ -7,9 +7,13 @@ import {
   returnLoan,
   recordSale,
   deleteBracelet,
+  addBraceletSizeVariant,
 } from "@/app/bracelets/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 import { BackLink } from "@/app/_components/back-link";
+import { SubmitButton } from "@/app/_components/submit-button";
+
+const BRACELET_SIZES = ["S", "M", "L"] as const;
 
 type Bracelet = {
   id: string;
@@ -17,7 +21,11 @@ type Bracelet = {
   photo_url: string | null;
   made_count: number;
   notes: string | null;
+  size: string | null;
+  variant_group_id: string | null;
 };
+
+type SizeVariant = { id: string; size: string | null };
 
 type BraceletBeadRow = {
   id: string;
@@ -26,6 +34,8 @@ type BraceletBeadRow = {
   bead: {
     id: string;
     article_number: string;
+    name: string | null;
+    image_url: string | null;
     color: string | null;
     size_mm: number | string | null;
     unit_price: number | string | null;
@@ -67,7 +77,7 @@ async function getBracelet(id: string): Promise<Bracelet | null> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelets")
-      .select("id, name, photo_url, made_count, notes")
+      .select("id, name, photo_url, made_count, notes, size, variant_group_id")
       .eq("id", id)
       .maybeSingle();
     if (error || !data) return null;
@@ -77,13 +87,31 @@ async function getBracelet(id: string): Promise<Bracelet | null> {
   }
 }
 
+async function getSizeVariants(variantGroupId: string): Promise<SizeVariant[]> {
+  try {
+    const supabase = createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("bracelets")
+      .select("id, size")
+      .eq("variant_group_id", variantGroupId);
+    if (error || !data) return [];
+    return data.sort(
+      (a, b) =>
+        BRACELET_SIZES.indexOf((a.size ?? "") as (typeof BRACELET_SIZES)[number]) -
+        BRACELET_SIZES.indexOf((b.size ?? "") as (typeof BRACELET_SIZES)[number])
+    );
+  } catch {
+    return [];
+  }
+}
+
 async function getBraceletBeads(id: string): Promise<BraceletBeadRow[]> {
   try {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelet_beads")
       .select(
-        "id, quantity, unknown_description, bead:beads(id, article_number, color, size_mm, unit_price)"
+        "id, quantity, unknown_description, bead:beads(id, article_number, name, image_url, color, size_mm, unit_price)"
       )
       .eq("bracelet_id", id);
     if (error || !data) return [];
@@ -176,13 +204,21 @@ export default async function BraceletDetailPage({
     notFound();
   }
 
-  const [beadRows, counters, sales, loans, openOrders] = await Promise.all([
-    getBraceletBeads(id),
-    getCounters(id),
-    getSales(id),
-    getLoans(id),
-    getOpenOrders(id),
-  ]);
+  const [beadRows, counters, sales, loans, openOrders, sizeVariants] =
+    await Promise.all([
+      getBraceletBeads(id),
+      getCounters(id),
+      getSales(id),
+      getLoans(id),
+      getOpenOrders(id),
+      bracelet.variant_group_id
+        ? getSizeVariants(bracelet.variant_group_id)
+        : Promise.resolve<SizeVariant[]>([]),
+    ]);
+
+  const availableNewSizes = BRACELET_SIZES.filter(
+    (size) => !sizeVariants.some((variant) => variant.size === size)
+  );
 
   const materialCost = beadRows.reduce((sum, row) => {
     const price = Number(row.bead?.unit_price ?? 0);
@@ -194,14 +230,38 @@ export default async function BraceletDetailPage({
   const recordLoanWithId = recordLoan.bind(null, id);
   const recordSaleWithId = recordSale.bind(null, id);
   const deleteBraceletWithId = deleteBracelet.bind(null, id);
+  const addSizeVariantWithId = addBraceletSizeVariant.bind(null, id);
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
       <BackLink href="/bracelets" />
 
+      {sizeVariants.length > 1 && (
+        <div className="mb-4 flex gap-2">
+          {sizeVariants.map((variant) => (
+            <Link
+              key={variant.id}
+              href={`/bracelets/${variant.id}`}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                variant.id === id
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {variant.size ?? "?"}
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="mb-6 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-medium text-gray-900">
           {bracelet.name}
+          {bracelet.size && (
+            <span className="ml-2 text-base font-normal text-gray-400">
+              ({bracelet.size})
+            </span>
+          )}
         </h1>
         <Link
           href={`/bracelets/${id}/edit`}
@@ -261,6 +321,74 @@ export default async function BraceletDetailPage({
 
       {error && <p className="mb-6 text-sm text-gray-500">{error}</p>}
 
+      {availableNewSizes.length > 0 && (
+        <details className="mb-8 rounded-lg border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-medium text-gray-700">
+            + Größe hinzufügen
+          </summary>
+          <form
+            action={addSizeVariantWithId}
+            className="mt-3 flex flex-wrap items-end gap-2"
+          >
+            {!bracelet.size && (
+              <div>
+                <label
+                  className="mb-1 block text-sm text-gray-600"
+                  htmlFor="current_size"
+                >
+                  Größe dieses Armbands
+                </label>
+                <select
+                  id="current_size"
+                  name="current_size"
+                  required
+                  defaultValue=""
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+                >
+                  <option value="" disabled>
+                    Wählen…
+                  </option>
+                  {BRACELET_SIZES.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label
+                className="mb-1 block text-sm text-gray-600"
+                htmlFor="new_size"
+              >
+                Neue Größe
+              </label>
+              <select
+                id="new_size"
+                name="new_size"
+                required
+                defaultValue=""
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
+              >
+                <option value="" disabled>
+                  Wählen…
+                </option>
+                {availableNewSizes.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <SubmitButton pendingLabel="Legt an…">Hinzufügen</SubmitButton>
+          </form>
+          <p className="mt-2 text-xs text-gray-400">
+            Übernimmt Foto und Perlenliste als Ausgangspunkt — danach kannst
+            du die neue Größe separat anpassen.
+          </p>
+        </details>
+      )}
+
       <section className="mb-8">
         <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
           Verwendete Perlen
@@ -271,24 +399,56 @@ export default async function BraceletDetailPage({
           <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
             {beadRows.map((row) => {
               const price = Number(row.bead?.unit_price ?? 0);
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-center justify-between px-4 py-3 text-sm"
-                >
-                  <span className={row.bead ? "text-gray-900" : "text-amber-600"}>
-                    {row.bead
-                      ? row.bead.article_number
-                      : `Unbekannte Perle${
-                          row.unknown_description
-                            ? ` (${row.unknown_description})`
-                            : ""
-                        }`}{" "}
-                    × {row.quantity}
-                  </span>
-                  <span className="text-gray-500">
+              const rowContent = (
+                <>
+                  <div className="flex min-w-0 items-center gap-3">
+                    {row.bead && (
+                      <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-gray-100">
+                        {row.bead.image_url ? (
+                          <Image
+                            src={row.bead.image_url}
+                            alt={row.bead.article_number}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : null}
+                      </div>
+                    )}
+                    <span
+                      className={`truncate ${row.bead ? "text-gray-900" : "text-amber-600"}`}
+                    >
+                      {row.bead
+                        ? [row.bead.name, row.bead.article_number]
+                            .filter(Boolean)
+                            .join(" · ")
+                        : `Unbekannte Perle${
+                            row.unknown_description
+                              ? ` (${row.unknown_description})`
+                              : ""
+                          }`}{" "}
+                      × {row.quantity}
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-gray-500">
                     {currencyFormatter.format(price * row.quantity)}
                   </span>
+                </>
+              );
+
+              return (
+                <li key={row.id}>
+                  {row.bead ? (
+                    <Link
+                      href={`/beads/${row.bead.id}?from=${encodeURIComponent(`/bracelets/${id}`)}`}
+                      className="flex items-center justify-between gap-4 px-4 py-3 text-sm transition hover:bg-gray-50"
+                    >
+                      {rowContent}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+                      {rowContent}
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -346,12 +506,9 @@ export default async function BraceletDetailPage({
               <input type="checkbox" name="is_gift" value="yes" />
               Geschenk (kein Geld erhalten)
             </label>
-            <button
-              type="submit"
-              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-            >
+            <SubmitButton pendingLabel="Speichert…">
               Verkauf speichern
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </section>
@@ -371,12 +528,7 @@ export default async function BraceletDetailPage({
             required
             className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
           />
-          <button
-            type="submit"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-          >
-            Verleihen
-          </button>
+          <SubmitButton pendingLabel="Speichert…">Verleihen</SubmitButton>
         </form>
         {error && <p className="mt-2 text-sm text-gray-500">{error}</p>}
       </section>
@@ -405,12 +557,12 @@ export default async function BraceletDetailPage({
                     </span>
                   ) : (
                     <form action={returnLoanWithIds}>
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        pendingLabel="Speichert…"
                         className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
                       >
                         Zurückerhalten
-                      </button>
+                      </SubmitButton>
                     </form>
                   )}
                 </li>

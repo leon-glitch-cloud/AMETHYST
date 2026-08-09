@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { completeOrder, cancelOrder } from "@/app/orders/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 import { BackLink } from "@/app/_components/back-link";
+import { SubmitButton } from "@/app/_components/submit-button";
 
 type OrderDetail = {
   id: string;
@@ -114,12 +115,9 @@ export default async function OrderDetailPage({
                   <input type="checkbox" name="is_gift" value="yes" />
                   Geschenk (kein Geld erhalten)
                 </label>
-                <button
-                  type="submit"
-                  className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-                >
+                <SubmitButton pendingLabel="Speichert…">
                   Als erledigt speichern
-                </button>
+                </SubmitButton>
               </div>
             </form>
           </section>

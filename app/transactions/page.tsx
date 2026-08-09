@@ -6,6 +6,7 @@ import {
   type Transaction,
 } from "@/app/transactions/_components/transaction-filter-list";
 import { BackLink } from "@/app/_components/back-link";
+import { SubmitButton } from "@/app/_components/submit-button";
 
 async function getTransactions(): Promise<Transaction[]> {
   try {
@@ -91,12 +92,7 @@ export default async function TransactionsPage({
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
             />
           </div>
-          <button
-            type="submit"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-          >
-            Speichern
-          </button>
+          <SubmitButton pendingLabel="Speichert…">Speichern</SubmitButton>
         </form>
         {error && <p className="mt-2 text-sm text-gray-500">{error}</p>}
       </section>

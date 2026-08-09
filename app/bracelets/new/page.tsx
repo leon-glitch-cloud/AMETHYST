@@ -3,6 +3,7 @@ import { createBracelet } from "@/app/bracelets/actions";
 import { Field } from "@/app/beads/_components/field";
 import { FileUploadField } from "@/app/_components/file-upload-field";
 import { BackLink } from "@/app/_components/back-link";
+import { SubmitButton } from "@/app/_components/submit-button";
 
 export default async function NewBraceletPage({
   searchParams,
@@ -38,12 +39,7 @@ export default async function NewBraceletPage({
         {error && <p className="text-sm text-gray-500">{error}</p>}
 
         <div className="flex items-center gap-4 pt-2">
-          <button
-            type="submit"
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-          >
-            Speichern
-          </button>
+          <SubmitButton pendingLabel="Speichert…">Speichern</SubmitButton>
           <Link
             href="/bracelets"
             className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"

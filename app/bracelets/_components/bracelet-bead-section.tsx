@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { suggestBeadsFromPhoto } from "@/app/bracelets/actions";
 import { FileUploadField } from "@/app/_components/file-upload-field";
+import { AmethystSpinner } from "@/app/_components/amethyst-spinner";
 import {
   BeadPicker,
   type BeadItem,
@@ -59,8 +60,9 @@ export function BraceletBeadSection({
           type="button"
           onClick={handleSuggest}
           disabled={isSuggesting}
-          className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-300"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900 disabled:cursor-not-allowed disabled:text-gray-300"
         >
+          {isSuggesting && <AmethystSpinner size={14} />}
           {isSuggesting
             ? "Analysiere Foto…"
             : "Perlen-Vorschlag von KI generieren"}

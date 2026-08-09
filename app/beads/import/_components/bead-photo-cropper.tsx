@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import ReactCrop, { type Crop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
+import { AmethystSpinner } from "@/app/_components/amethyst-spinner";
 
 export type PhotoBbox = { x: number; y: number; width: number; height: number };
 
@@ -97,8 +98,9 @@ export function BeadPhotoCropper({
           type="button"
           onClick={handleConfirm}
           disabled={isSaving}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
+          {isSaving && <AmethystSpinner size={14} />}
           {isSaving ? "Speichert…" : "Zuschnitt übernehmen"}
         </button>
         <button
