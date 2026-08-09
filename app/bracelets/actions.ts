@@ -40,9 +40,33 @@ function parseBeadItems(
 
 function braceletFieldsFromFormData(formData: FormData) {
   return {
-    made_count: parseNumber(formData.get("made_count")) ?? 0,
     notes: parseText(formData.get("notes")),
   };
+}
+
+async function getBraceletStock(
+  braceletId: string,
+  supabase: ReturnType<typeof createSupabaseServerClient>
+): Promise<number> {
+  const [{ data: bracelet }, { count: usedCount }, { count: loanedCount }] =
+    await Promise.all([
+      supabase
+        .from("bracelets")
+        .select("made_count")
+        .eq("id", braceletId)
+        .maybeSingle(),
+      supabase
+        .from("sales")
+        .select("id", { count: "exact", head: true })
+        .eq("bracelet_id", braceletId),
+      supabase
+        .from("loans")
+        .select("id", { count: "exact", head: true })
+        .eq("bracelet_id", braceletId)
+        .is("returned_at", null),
+    ]);
+
+  return (bracelet?.made_count ?? 0) - (usedCount ?? 0) - (loanedCount ?? 0);
 }
 
 export async function createBracelet(formData: FormData) {
@@ -87,6 +111,7 @@ export async function createBracelet(formData: FormData) {
     id,
     name,
     photo_url: photoUrl,
+    made_count: 0,
     ...braceletFieldsFromFormData(formData),
   });
 
@@ -203,6 +228,60 @@ export async function updateBracelet(id: string, formData: FormData) {
 
   revalidatePath("/bracelets");
   redirect(`/bracelets/${id}`);
+}
+
+export async function increaseMadeCount(braceletId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data: bracelet } = await supabase
+    .from("bracelets")
+    .select("made_count")
+    .eq("id", braceletId)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("bracelets")
+    .update({ made_count: (bracelet?.made_count ?? 0) + 1 })
+    .eq("id", braceletId);
+
+  if (error) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Lagerbestand konnte nicht erhöht werden"
+      )}`
+    );
+  }
+
+  revalidatePath("/bracelets");
+  revalidatePath("/");
+  redirect(`/bracelets/${braceletId}`);
+}
+
+export async function decreaseMadeCount(braceletId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data: bracelet } = await supabase
+    .from("bracelets")
+    .select("made_count")
+    .eq("id", braceletId)
+    .maybeSingle();
+
+  const newCount = Math.max((bracelet?.made_count ?? 0) - 1, 0);
+
+  const { error } = await supabase
+    .from("bracelets")
+    .update({ made_count: newCount })
+    .eq("id", braceletId);
+
+  if (error) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Lagerbestand konnte nicht verringert werden"
+      )}`
+    );
+  }
+
+  revalidatePath("/bracelets");
+  revalidatePath("/");
+  redirect(`/bracelets/${braceletId}`);
 }
 
 export async function deleteBracelet(id: string) {
@@ -341,32 +420,6 @@ export async function addBraceletSizeVariant(
   redirect(`/bracelets/${newId}`);
 }
 
-export async function recordLoan(braceletId: string, formData: FormData) {
-  const borrowerName = parseText(formData.get("borrower_name"));
-  if (!borrowerName) {
-    redirect(
-      `/bracelets/${braceletId}?error=${encodeURIComponent("Name ist erforderlich")}`
-    );
-  }
-
-  const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("loans").insert({
-    bracelet_id: braceletId,
-    borrower_name: borrowerName,
-  });
-
-  if (error) {
-    redirect(
-      `/bracelets/${braceletId}?error=${encodeURIComponent(
-        "Verleihung konnte nicht gespeichert werden"
-      )}`
-    );
-  }
-
-  revalidatePath("/bracelets");
-  redirect(`/bracelets/${braceletId}`);
-}
-
 export async function returnLoan(loanId: string, braceletId: string) {
   const supabase = createSupabaseServerClient();
   const { error } = await supabase
@@ -386,28 +439,65 @@ export async function returnLoan(loanId: string, braceletId: string) {
   redirect(`/bracelets/${braceletId}`);
 }
 
-export async function recordSale(braceletId: string, formData: FormData) {
-  const buyerName = parseText(formData.get("buyer_name"));
-  if (!buyerName) {
+export async function recordBraceletEvent(
+  braceletId: string,
+  formData: FormData
+) {
+  const personName = parseText(formData.get("person_name"));
+  if (!personName) {
     redirect(
-      `/bracelets/${braceletId}?error=${encodeURIComponent("Käufer ist erforderlich")}`
+      `/bracelets/${braceletId}?error=${encodeURIComponent("Name ist erforderlich")}`
     );
   }
 
-  const isGift = formData.get("is_gift") === "yes";
+  const eventType = formData.get("event_type");
+  const targetBraceletIdRaw = formData.get("bracelet_id");
+  const targetBraceletId =
+    typeof targetBraceletIdRaw === "string" && targetBraceletIdRaw.trim() !== ""
+      ? targetBraceletIdRaw
+      : braceletId;
+  const supabase = createSupabaseServerClient();
+
+  const stock = await getBraceletStock(targetBraceletId, supabase);
+  if (stock <= 0) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Kein Armband mehr auf Lager"
+      )}`
+    );
+  }
+
+  if (eventType === "loaned") {
+    const { error } = await supabase.from("loans").insert({
+      bracelet_id: targetBraceletId,
+      borrower_name: personName,
+    });
+
+    if (error) {
+      redirect(
+        `/bracelets/${braceletId}?error=${encodeURIComponent(
+          "Verleihung konnte nicht gespeichert werden"
+        )}`
+      );
+    }
+
+    revalidatePath("/bracelets");
+    redirect(`/bracelets/${braceletId}`);
+  }
+
+  const isGift = eventType === "gift";
   const price = isGift ? 0 : (parseNumber(formData.get("price")) ?? 0);
 
-  const supabase = createSupabaseServerClient();
   const { data: bracelet } = await supabase
     .from("bracelets")
     .select("name")
-    .eq("id", braceletId)
+    .eq("id", targetBraceletId)
     .maybeSingle();
 
   const result = await createSaleTransaction({
-    braceletId,
+    braceletId: targetBraceletId,
     braceletName: bracelet?.name ?? "Armband",
-    buyerName,
+    buyerName: personName,
     price,
     isGift,
   });
@@ -416,6 +506,33 @@ export async function recordSale(braceletId: string, formData: FormData) {
     redirect(`/bracelets/${braceletId}?error=${encodeURIComponent(result.message)}`);
   }
 
+  redirect(`/bracelets/${braceletId}`);
+}
+
+export async function deleteSale(saleId: string, braceletId: string) {
+  const supabase = createSupabaseServerClient();
+  const { data: sale } = await supabase
+    .from("sales")
+    .select("transaction_id")
+    .eq("id", saleId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("sales").delete().eq("id", saleId);
+
+  if (error) {
+    redirect(
+      `/bracelets/${braceletId}?error=${encodeURIComponent(
+        "Verkauf konnte nicht gelöscht werden"
+      )}`
+    );
+  }
+
+  if (sale?.transaction_id) {
+    await supabase.from("transactions").delete().eq("id", sale.transaction_id);
+  }
+
+  revalidatePath("/bracelets");
+  revalidatePath("/");
   redirect(`/bracelets/${braceletId}`);
 }
 

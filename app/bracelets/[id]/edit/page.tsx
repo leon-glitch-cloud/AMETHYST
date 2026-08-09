@@ -16,7 +16,6 @@ type Bracelet = {
   id: string;
   name: string;
   photo_url: string | null;
-  made_count: number;
   notes: string | null;
 };
 
@@ -25,7 +24,7 @@ async function getBracelet(id: string): Promise<Bracelet | null> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelets")
-      .select("id, name, photo_url, made_count, notes")
+      .select("id, name, photo_url, notes")
       .eq("id", id)
       .maybeSingle();
     if (error || !data) return null;
@@ -111,14 +110,6 @@ export default async function EditBraceletPage({
           name="name"
           defaultValue={bracelet.name}
           required
-        />
-
-        <Field
-          label="Hergestellte Menge"
-          name="made_count"
-          type="number"
-          step="1"
-          defaultValue={bracelet.made_count}
         />
 
         <div>

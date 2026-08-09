@@ -40,6 +40,43 @@ export async function createExpense(formData: FormData) {
   redirect("/transactions");
 }
 
+export async function createIncome(formData: FormData) {
+  const description = parseText(formData.get("description"));
+  if (!description) {
+    redirect(
+      `/transactions?error=${encodeURIComponent("Beschreibung ist erforderlich")}`
+    );
+  }
+
+  const amount = parseNumber(formData.get("amount"));
+  if (amount === null || amount <= 0) {
+    redirect(
+      `/transactions?error=${encodeURIComponent("Betrag muss größer als 0 sein")}`
+    );
+  }
+
+  const date = parseText(formData.get("date")) ?? new Date().toISOString().slice(0, 10);
+
+  const supabase = createSupabaseServerClient();
+  // "refund" ist technisch der Typ, deckt inhaltlich aber jede manuell
+  // erfasste Einnahme ab (z. B. ein Verkauf ohne dokumentiertes Armband).
+  const { error } = await supabase.from("transactions").insert({
+    date,
+    type: "refund",
+    description,
+    amount: Math.abs(amount),
+  });
+
+  if (error) {
+    redirect(
+      `/transactions?error=${encodeURIComponent("Einnahme konnte nicht gespeichert werden")}`
+    );
+  }
+
+  revalidatePath("/");
+  redirect("/transactions");
+}
+
 export async function deleteTransaction(id: string) {
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("transactions").delete().eq("id", id);

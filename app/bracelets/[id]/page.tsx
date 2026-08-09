@@ -3,15 +3,18 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  recordLoan,
+  recordBraceletEvent,
+  increaseMadeCount,
+  decreaseMadeCount,
   returnLoan,
-  recordSale,
+  deleteSale,
   deleteBracelet,
   addBraceletSizeVariant,
 } from "@/app/bracelets/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 import { BackLink } from "@/app/_components/back-link";
 import { SubmitButton } from "@/app/_components/submit-button";
+import { BraceletEventForm } from "@/app/bracelets/_components/bracelet-event-form";
 
 const BRACELET_SIZES = ["S", "M", "L"] as const;
 
@@ -25,7 +28,7 @@ type Bracelet = {
   variant_group_id: string | null;
 };
 
-type SizeVariant = { id: string; size: string | null };
+type SizeVariant = { id: string; size: string | null; made_count: number };
 
 type BraceletBeadRow = {
   id: string;
@@ -49,6 +52,7 @@ type Sale = {
   price: number | string;
   is_gift: boolean;
   transaction_id: string | null;
+  bracelet_id: string;
 };
 
 type Loan = {
@@ -56,11 +60,31 @@ type Loan = {
   borrower_name: string;
   loaned_at: string;
   returned_at: string | null;
+  bracelet_id: string;
 };
 
 type OpenOrder = {
   id: string;
   customer_name: string;
+};
+
+type HistoryEntry = {
+  id: string;
+  date: string;
+  type: "sold" | "gift" | "loaned";
+  personName: string;
+  price: number | string | null;
+  transactionId: string | null;
+  saleId: string | null;
+  loanId: string | null;
+  returnedAt: string | null;
+  size: string | null;
+};
+
+const historyTypeLabels: Record<HistoryEntry["type"], string> = {
+  sold: "Verkauft",
+  gift: "Geschenk",
+  loaned: "Verliehen",
 };
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
@@ -92,7 +116,7 @@ async function getSizeVariants(variantGroupId: string): Promise<SizeVariant[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelets")
-      .select("id, size")
+      .select("id, size, made_count")
       .eq("variant_group_id", variantGroupId);
     if (error || !data) return [];
     return data.sort(
@@ -122,34 +146,33 @@ async function getBraceletBeads(id: string): Promise<BraceletBeadRow[]> {
 }
 
 async function getCounters(
-  id: string
-): Promise<{ sold: number; loaned: number }> {
+  ids: string[]
+): Promise<{ sold: number; gifted: number; loaned: number }> {
   try {
     const supabase = createSupabaseServerClient();
-    const [{ count: sold }, { count: loaned }] = await Promise.all([
-      supabase
-        .from("sales")
-        .select("id", { count: "exact", head: true })
-        .eq("bracelet_id", id),
+    const [{ data: salesRows }, { count: loaned }] = await Promise.all([
+      supabase.from("sales").select("is_gift").in("bracelet_id", ids),
       supabase
         .from("loans")
         .select("id", { count: "exact", head: true })
-        .eq("bracelet_id", id)
+        .in("bracelet_id", ids)
         .is("returned_at", null),
     ]);
-    return { sold: sold ?? 0, loaned: loaned ?? 0 };
+    const sold = (salesRows ?? []).filter((row) => !row.is_gift).length;
+    const gifted = (salesRows ?? []).filter((row) => row.is_gift).length;
+    return { sold, gifted, loaned: loaned ?? 0 };
   } catch {
-    return { sold: 0, loaned: 0 };
+    return { sold: 0, gifted: 0, loaned: 0 };
   }
 }
 
-async function getSales(id: string): Promise<Sale[]> {
+async function getSales(ids: string[]): Promise<Sale[]> {
   try {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("sales")
-      .select("id, sale_date, buyer_name, price, is_gift, transaction_id")
-      .eq("bracelet_id", id)
+      .select("id, sale_date, buyer_name, price, is_gift, transaction_id, bracelet_id")
+      .in("bracelet_id", ids)
       .order("sale_date", { ascending: false });
     if (error || !data) return [];
     return data;
@@ -158,13 +181,13 @@ async function getSales(id: string): Promise<Sale[]> {
   }
 }
 
-async function getLoans(id: string): Promise<Loan[]> {
+async function getLoans(ids: string[]): Promise<Loan[]> {
   try {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("loans")
-      .select("id, borrower_name, loaned_at, returned_at")
-      .eq("bracelet_id", id)
+      .select("id, borrower_name, loaned_at, returned_at, bracelet_id")
+      .in("bracelet_id", ids)
       .order("loaned_at", { ascending: false });
     if (error || !data) return [];
     return data;
@@ -204,17 +227,20 @@ export default async function BraceletDetailPage({
     notFound();
   }
 
-  const [beadRows, counters, sales, loans, openOrders, sizeVariants] =
-    await Promise.all([
-      getBraceletBeads(id),
-      getCounters(id),
-      getSales(id),
-      getLoans(id),
-      getOpenOrders(id),
-      bracelet.variant_group_id
-        ? getSizeVariants(bracelet.variant_group_id)
-        : Promise.resolve<SizeVariant[]>([]),
-    ]);
+  const sizeVariants = bracelet.variant_group_id
+    ? await getSizeVariants(bracelet.variant_group_id)
+    : [];
+
+  const variantIds = sizeVariants.length > 0 ? sizeVariants.map((v) => v.id) : [id];
+  const sizeById = new Map(sizeVariants.map((v) => [v.id, v.size]));
+
+  const [beadRows, counters, sales, loans, openOrders] = await Promise.all([
+    getBraceletBeads(id),
+    getCounters(variantIds),
+    getSales(variantIds),
+    getLoans(variantIds),
+    getOpenOrders(id),
+  ]);
 
   const availableNewSizes = BRACELET_SIZES.filter(
     (size) => !sizeVariants.some((variant) => variant.size === size)
@@ -225,10 +251,59 @@ export default async function BraceletDetailPage({
     return sum + price * row.quantity;
   }, 0);
 
-  const inStock = bracelet.made_count - counters.sold - counters.loaned;
+  const totalMadeCount =
+    sizeVariants.length > 0
+      ? sizeVariants.reduce((sum, variant) => sum + variant.made_count, 0)
+      : bracelet.made_count;
 
-  const recordLoanWithId = recordLoan.bind(null, id);
-  const recordSaleWithId = recordSale.bind(null, id);
+  const inStock =
+    totalMadeCount - counters.sold - counters.gifted - counters.loaned;
+
+  const usedByVariant = new Map<string, number>();
+  sales.forEach((sale) => {
+    usedByVariant.set(sale.bracelet_id, (usedByVariant.get(sale.bracelet_id) ?? 0) + 1);
+  });
+  loans.forEach((loan) => {
+    if (!loan.returned_at) {
+      usedByVariant.set(loan.bracelet_id, (usedByVariant.get(loan.bracelet_id) ?? 0) + 1);
+    }
+  });
+  const stockByVariant = sizeVariants.map((variant) => ({
+    id: variant.id,
+    size: variant.size,
+    inStock: variant.made_count - (usedByVariant.get(variant.id) ?? 0),
+  }));
+
+  const historyEntries: HistoryEntry[] = [
+    ...sales.map((sale) => ({
+      id: `sale-${sale.id}`,
+      date: sale.sale_date,
+      type: (sale.is_gift ? "gift" : "sold") as HistoryEntry["type"],
+      personName: sale.buyer_name,
+      price: sale.price,
+      transactionId: sale.transaction_id,
+      saleId: sale.id,
+      loanId: null,
+      returnedAt: null,
+      size: sizeById.get(sale.bracelet_id) ?? null,
+    })),
+    ...loans.map((loan) => ({
+      id: `loan-${loan.id}`,
+      date: loan.loaned_at,
+      type: "loaned" as HistoryEntry["type"],
+      personName: loan.borrower_name,
+      price: null,
+      transactionId: null,
+      saleId: null,
+      loanId: loan.id,
+      returnedAt: loan.returned_at,
+      size: sizeById.get(loan.bracelet_id) ?? null,
+    })),
+  ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+
+  const recordEventWithId = recordBraceletEvent.bind(null, id);
+  const increaseMadeCountWithId = increaseMadeCount.bind(null, id);
+  const decreaseMadeCountWithId = decreaseMadeCount.bind(null, id);
   const deleteBraceletWithId = deleteBracelet.bind(null, id);
   const addSizeVariantWithId = addBraceletSizeVariant.bind(null, id);
 
@@ -292,11 +367,48 @@ export default async function BraceletDetailPage({
         <p className="mb-6 text-sm text-gray-600">{bracelet.notes}</p>
       )}
 
-      <div className="mb-8 grid grid-cols-3 gap-4 rounded-lg border border-gray-200 bg-white p-4 text-center">
+      <div className="mb-8 grid grid-cols-4 gap-4 rounded-lg border border-gray-200 bg-white p-4 text-center">
         <div>
-          <p className="text-lg font-semibold text-gray-900">
-            {Math.max(inStock, 0)}
-          </p>
+          {stockByVariant.length > 1 ? (
+            <div className="space-y-0.5">
+              {stockByVariant.map((variant) => (
+                <div
+                  key={variant.id}
+                  className="flex items-center justify-center gap-1.5"
+                >
+                  <span className="text-sm font-semibold text-gray-900">
+                    {Math.max(variant.inStock, 0)}× {variant.size ?? "?"}
+                  </span>
+                  <form action={decreaseMadeCount.bind(null, variant.id)}>
+                    <SubmitButton className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] leading-none text-gray-500 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70">
+                      −
+                    </SubmitButton>
+                  </form>
+                  <form action={increaseMadeCount.bind(null, variant.id)}>
+                    <SubmitButton className="flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] leading-none text-gray-500 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70">
+                      +
+                    </SubmitButton>
+                  </form>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-1.5">
+              <p className="text-lg font-semibold text-gray-900">
+                {Math.max(inStock, 0)}
+              </p>
+              <form action={decreaseMadeCountWithId}>
+                <SubmitButton className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs leading-none text-gray-500 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70">
+                  −
+                </SubmitButton>
+              </form>
+              <form action={increaseMadeCountWithId}>
+                <SubmitButton className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-300 text-xs leading-none text-gray-500 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-70">
+                  +
+                </SubmitButton>
+              </form>
+            </div>
+          )}
           <p className="text-xs uppercase tracking-wide text-gray-400">
             Auf Lager
           </p>
@@ -315,6 +427,14 @@ export default async function BraceletDetailPage({
           </p>
           <p className="text-xs uppercase tracking-wide text-gray-400">
             Verkauft
+          </p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-gray-900">
+            {counters.gifted}
+          </p>
+          <p className="text-xs uppercase tracking-wide text-gray-400">
+            Verschenkt
           </p>
         </div>
       </div>
@@ -481,131 +601,82 @@ export default async function BraceletDetailPage({
 
       <section className="mb-8">
         <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
-          Verkauf erfassen
+          Bewegung erfassen
         </h2>
-        <form action={recordSaleWithId} className="space-y-2">
-          <div className="flex items-center gap-2">
-            <input
-              name="buyer_name"
-              type="text"
-              placeholder="Käufer"
-              required
-              className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-            />
-            <input
-              name="price"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Preis (€)"
-              className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm text-gray-600">
-              <input type="checkbox" name="is_gift" value="yes" />
-              Geschenk (kein Geld erhalten)
-            </label>
-            <SubmitButton pendingLabel="Speichert…">
-              Verkauf speichern
-            </SubmitButton>
-          </div>
-        </form>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
-          Verleihen
-        </h2>
-        <form
-          action={recordLoanWithId}
-          className="flex items-center gap-2"
-        >
-          <input
-            name="borrower_name"
-            type="text"
-            placeholder="An wen?"
-            required
-            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
-          />
-          <SubmitButton pendingLabel="Speichert…">Verleihen</SubmitButton>
-        </form>
+        <BraceletEventForm
+          action={recordEventWithId}
+          sizeOptions={sizeVariants}
+          currentId={id}
+        />
         {error && <p className="mt-2 text-sm text-gray-500">{error}</p>}
       </section>
 
       <section className="mb-8">
         <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
-          Verleihhistorie
+          Historie
         </h2>
-        {loans.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Verleihungen.</p>
+        {historyEntries.length === 0 ? (
+          <p className="text-sm text-gray-500">Noch keine Bewegungen.</p>
         ) : (
           <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
-            {loans.map((loan) => {
-              const returnLoanWithIds = returnLoan.bind(null, loan.id, id);
-              return (
-                <li
-                  key={loan.id}
-                  className="flex items-center justify-between px-4 py-3 text-sm"
-                >
-                  <span className="text-gray-700">
-                    {formatDate(loan.loaned_at)} · {loan.borrower_name}
-                  </span>
-                  {loan.returned_at ? (
-                    <span className="text-gray-500">
-                      zurück am {formatDate(loan.returned_at)}
-                    </span>
-                  ) : (
-                    <form action={returnLoanWithIds}>
-                      <SubmitButton
-                        pendingLabel="Speichert…"
-                        className="text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
-                      >
-                        Zurückerhalten
-                      </SubmitButton>
-                    </form>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-3 text-sm uppercase tracking-wide text-gray-400">
-          Verkaufshistorie
-        </h2>
-        {sales.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Verkäufe.</p>
-        ) : (
-          <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white">
-            {sales.map((sale) => {
-              const row = (
+            {historyEntries.map((entry) => {
+              const info = (
                 <>
                   <span className="text-gray-700">
-                    {formatDate(sale.sale_date)} · {sale.buyer_name}
-                    {sale.is_gift ? " (Geschenk)" : ""}
+                    {formatDate(entry.date)} · {entry.personName}{" "}
+                    <span className="text-xs text-gray-400">
+                      ({historyTypeLabels[entry.type]}
+                      {entry.size && sizeVariants.length > 1
+                        ? ` · ${entry.size}`
+                        : ""}
+                      )
+                    </span>
                   </span>
                   <span className="text-gray-500">
-                    {currencyFormatter.format(Number(sale.price))}
+                    {entry.type === "loaned"
+                      ? entry.returnedAt
+                        ? `zurück am ${formatDate(entry.returnedAt)}`
+                        : "offen"
+                      : currencyFormatter.format(Number(entry.price))}
                   </span>
                 </>
               );
 
               return (
-                <li key={sale.id}>
-                  {sale.transaction_id ? (
+                <li
+                  key={entry.id}
+                  className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
+                >
+                  {entry.transactionId ? (
                     <Link
-                      href={`/transactions#tx-${sale.transaction_id}`}
-                      className="flex items-center justify-between px-4 py-3 text-sm transition hover:bg-gray-50"
+                      href={`/transactions#tx-${entry.transactionId}`}
+                      className="flex flex-1 items-center justify-between gap-4 transition hover:text-gray-600"
                     >
-                      {row}
+                      {info}
                     </Link>
                   ) : (
-                    <div className="flex items-center justify-between px-4 py-3 text-sm">
-                      {row}
+                    <div className="flex flex-1 items-center justify-between gap-4">
+                      {info}
                     </div>
+                  )}
+                  {entry.type === "loaned" ? (
+                    !entry.returnedAt && (
+                      <form action={returnLoan.bind(null, entry.loanId!, id)}>
+                        <SubmitButton
+                          pendingLabel="Speichert…"
+                          className="shrink-0 text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
+                        >
+                          Zurückerhalten
+                        </SubmitButton>
+                      </form>
+                    )
+                  ) : (
+                    <ConfirmFormButton
+                      action={deleteSale.bind(null, entry.saleId!, id)}
+                      label="Löschen"
+                      confirmMessage="Diesen Eintrag wirklich löschen? Die zugehörige Buchung im Verlauf wird ebenfalls entfernt."
+                      className="shrink-0 text-sm text-gray-400 hover:text-gray-900"
+                    />
                   )}
                 </li>
               );

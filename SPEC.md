@@ -216,10 +216,13 @@ Laufende Bilanz (aktuell im Minus wegen Materialeinkäufen).
   als verkauft erfasst wird (welches Modell, an wen, Preis). Nicht separat hier
   eintippen – die Buchung wird durch den Verkauf erzeugt und ist mit ihm verknüpft.
 - **Geschenk:** ist ein Verkauf mit Preis 0 (Empfänger dokumentiert), erscheint mit
-  Betrag 0 in der Historie.
-- **Rücksendung / Erstattung:** wird als normale positive Buchung im Bilanz-Bereich
-  manuell erfasst (Datum, Beschreibung z. B. „Erstattung Shop XY", Betrag positiv).
-  Keine eigene Perlen-Mechanik, kein Bestandsbezug.
+  Betrag 0 in der Historie, wird aber als eigene Kategorie „Geschenk" gelistet
+  (nicht als „Verkauf").
+- **Einnahme:** manuell erfasste positive Buchung im Bilanz-Bereich (Datum,
+  Beschreibung, Betrag positiv) für alles, was nicht über den Verkauf-Flow eines
+  Armbands läuft – z. B. eine Lieferanten-Erstattung, oder ein Verkauf, bei dem
+  nicht mehr dokumentiert ist, welches Armband/Modell es war. Keine eigene
+  Perlen-Mechanik, kein Bestandsbezug, keine Verknüpfung zu einem Armband.
 - **Verleih:** erzeugt bewusst KEINE Buchung – kein Geldfluss, das Armband bleibt
   Bestand.
 
@@ -254,9 +257,12 @@ Laufende Bilanz (aktuell im Minus wegen Materialeinkäufen).
 - **transactions:** id, date, type (expense/sale/refund), description, amount,
   bracelet_id (nullable), counterparty_name (nullable), created_at
   - Verkäufe erzeugen automatisch eine transaction (type=sale) und verweisen darüber
-    aus der Verkaufshistorie in die Bilanz. Geschenke: amount 0.
-  - Rücksendungen/Erstattungen: manuell erfasste transaction (type=refund, positiver
-    Betrag). Keine eigene Perlen-/Bestandsmechanik.
+    aus der Verkaufshistorie in die Bilanz. Geschenke: amount 0, is_gift auf der
+    verknüpften sales-Zeile steuert die Anzeige als „Geschenk" statt „Verkauf".
+  - Sonstige Einnahmen (Lieferanten-Erstattung, undokumentierter Verkauf o. ä.):
+    manuell erfasste transaction (type=refund, positiver Betrag, in der UI als
+    „Einnahme" beschriftet). Keine eigene Perlen-/Bestandsmechanik, kein
+    bracelet_id.
   - Verleihungen erzeugen KEINE transaction.
 - **material_orders** (optional, für Uploads): id, file_url, extracted_json, status
   (pending/confirmed), created_at

@@ -3,12 +3,25 @@ import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackLink } from "@/app/_components/back-link";
 
+const BRACELET_SIZES = ["S", "M", "L"] as const;
+
 type Bracelet = {
   id: string;
   name: string;
   photo_url: string | null;
   made_count: number;
   size: string | null;
+  variant_group_id: string | null;
+};
+
+type BraceletCard = {
+  id: string;
+  name: string;
+  photo_url: string | null;
+  sizes: string[];
+  inStock: number;
+  sold: number;
+  loaned: number;
 };
 
 type Counts = {
@@ -21,13 +34,55 @@ async function getBracelets(): Promise<Bracelet[]> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelets")
-      .select("id, name, photo_url, made_count, size")
+      .select("id, name, photo_url, made_count, size, variant_group_id")
       .order("name", { ascending: true });
     if (error || !data) return [];
     return data;
   } catch {
     return [];
   }
+}
+
+function groupBracelets(bracelets: Bracelet[], counts: Counts): BraceletCard[] {
+  const groups = new Map<string, Bracelet[]>();
+  bracelets.forEach((bracelet) => {
+    const key = bracelet.variant_group_id ?? bracelet.id;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(bracelet);
+  });
+
+  const cards = Array.from(groups.values()).map((group) => {
+    const representative = group.find((b) => b.photo_url) ?? group[0];
+    const madeCount = group.reduce((sum, b) => sum + b.made_count, 0);
+    const sold = group.reduce(
+      (sum, b) => sum + (counts.sold.get(b.id) ?? 0),
+      0
+    );
+    const loaned = group.reduce(
+      (sum, b) => sum + (counts.loaned.get(b.id) ?? 0),
+      0
+    );
+    const sizes = group
+      .map((b) => b.size)
+      .filter((size): size is string => Boolean(size))
+      .sort(
+        (a, b) =>
+          BRACELET_SIZES.indexOf(a as (typeof BRACELET_SIZES)[number]) -
+          BRACELET_SIZES.indexOf(b as (typeof BRACELET_SIZES)[number])
+      );
+
+    return {
+      id: representative.id,
+      name: representative.name,
+      photo_url: representative.photo_url,
+      sizes,
+      inStock: madeCount - sold - loaned,
+      sold,
+      loaned,
+    };
+  });
+
+  return cards.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function getCounts(): Promise<Counts> {
@@ -60,6 +115,8 @@ export default async function BraceletsPage() {
     getCounts(),
   ]);
 
+  const cards = groupBracelets(bracelets, counts);
+
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-4 py-12">
       <BackLink href="/" />
@@ -74,31 +131,28 @@ export default async function BraceletsPage() {
         </Link>
       </div>
 
-      {bracelets.length === 0 ? (
+      {cards.length === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500">
           Noch keine Armbänder angelegt.
         </p>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {bracelets.map((bracelet) => {
-            const sold = counts.sold.get(bracelet.id) ?? 0;
-            const loaned = counts.loaned.get(bracelet.id) ?? 0;
-            const inStock = bracelet.made_count - sold - loaned;
-            const soldOut = inStock <= 0;
+          {cards.map((card) => {
+            const soldOut = card.inStock <= 0;
 
             return (
-              <li key={bracelet.id}>
+              <li key={card.id}>
                 <Link
-                  href={`/bracelets/${bracelet.id}`}
+                  href={`/bracelets/${card.id}`}
                   className={`block overflow-hidden rounded-lg border border-gray-200 bg-white transition hover:border-gray-400 ${
                     soldOut ? "opacity-60" : ""
                   }`}
                 >
                   <div className="relative flex h-40 items-center justify-center bg-gray-100">
-                    {bracelet.photo_url ? (
+                    {card.photo_url ? (
                       <Image
-                        src={bracelet.photo_url}
-                        alt={bracelet.name}
+                        src={card.photo_url}
+                        alt={card.name}
                         fill
                         className="object-cover"
                       />
@@ -113,16 +167,19 @@ export default async function BraceletsPage() {
                   </div>
                   <div className="p-4">
                     <p className="mb-1 text-sm font-medium text-gray-900">
-                      {bracelet.name}
-                      {bracelet.size && (
-                        <span className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
-                          {bracelet.size}
+                      {card.name}
+                      {card.sizes.map((size) => (
+                        <span
+                          key={size}
+                          className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500"
+                        >
+                          {size}
                         </span>
-                      )}
+                      ))}
                     </p>
                     <p className="text-sm text-gray-500">
-                      {Math.max(inStock, 0)} auf Lager · {loaned} verliehen ·{" "}
-                      {sold} verkauft
+                      {Math.max(card.inStock, 0)} auf Lager · {card.loaned}{" "}
+                      verliehen · {card.sold} verkauft
                     </p>
                   </div>
                 </Link>

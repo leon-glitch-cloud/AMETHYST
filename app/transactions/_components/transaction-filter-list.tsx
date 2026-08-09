@@ -10,18 +10,28 @@ export type Transaction = {
   description: string;
   amount: number | string;
   counterparty_name: string | null;
+  is_gift: boolean;
 };
+
+type DisplayType = "expense" | "sale" | "refund" | "gift";
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",
 });
 
-const typeLabels: Record<Transaction["type"], string> = {
+const DISPLAY_TYPES: DisplayType[] = ["expense", "sale", "refund", "gift"];
+
+const typeLabels: Record<DisplayType, string> = {
   expense: "Ausgabe",
   sale: "Verkauf",
-  refund: "Rückversand",
+  refund: "Einnahme",
+  gift: "Geschenk",
 };
+
+function displayType(tx: Transaction): DisplayType {
+  return tx.type === "sale" && tx.is_gift ? "gift" : tx.type;
+}
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("de-DE");
@@ -34,13 +44,13 @@ export function TransactionFilterList({
   transactions: Transaction[];
   deleteTransaction: (id: string, formData: FormData) => void | Promise<void>;
 }) {
-  const [types, setTypes] = useState<Set<Transaction["type"]>>(
-    new Set(["expense", "sale", "refund"])
+  const [types, setTypes] = useState<Set<DisplayType>>(
+    new Set(DISPLAY_TYPES)
   );
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
-  function toggleType(type: Transaction["type"]) {
+  function toggleType(type: DisplayType) {
     setTypes((prev) => {
       const next = new Set(prev);
       if (next.has(type)) {
@@ -54,7 +64,7 @@ export function TransactionFilterList({
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
-      if (!types.has(tx.type)) return false;
+      if (!types.has(displayType(tx))) return false;
       if (from && tx.date < from) return false;
       if (to && tx.date > to) return false;
       return true;
@@ -73,7 +83,7 @@ export function TransactionFilterList({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
-        {(Object.keys(typeLabels) as Transaction["type"][]).map((type) => (
+        {DISPLAY_TYPES.map((type) => (
           <label
             key={type}
             className="flex items-center gap-1.5 text-gray-600"
@@ -127,7 +137,7 @@ export function TransactionFilterList({
                   {tx.counterparty_name ? ` · ${tx.counterparty_name}` : ""}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {formatDate(tx.date)} · {typeLabels[tx.type]}
+                  {formatDate(tx.date)} · {typeLabels[displayType(tx)]}
                 </p>
               </div>
               <span className="shrink-0 text-gray-900">
@@ -138,7 +148,9 @@ export function TransactionFilterList({
                 label="Löschen"
                 confirmMessage={
                   tx.type === "sale"
-                    ? "Diese Buchung wirklich löschen? Der zugehörige Verkauf bleibt in der Verkaufshistorie des Armbands bestehen, zählt dann aber nicht mehr zum Saldo."
+                    ? `Diese Buchung wirklich löschen? Der zugehörige ${
+                        tx.is_gift ? "Geschenk-Eintrag" : "Verkauf"
+                      } bleibt in der Verkaufshistorie des Armbands bestehen, zählt dann aber nicht mehr zum Saldo.`
                     : "Diese Buchung wirklich löschen?"
                 }
                 className="shrink-0 text-sm text-gray-400 hover:text-gray-900"
