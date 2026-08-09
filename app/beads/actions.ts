@@ -5,6 +5,16 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
+import { productSearchUrl } from "@/lib/beads";
+
+// Der Shop-Link wird beim Anlegen/Import automatisch aus Shop + Artikelnummer
+// erzeugt (Google-Suche). Damit ein späteres Ändern des Shop-Feldes nicht zu
+// einem inkonsistenten Button führt ("Bei X ansehen", sucht aber nach Y),
+// wird der Link neu erzeugt, solange er noch diese automatisch generierte
+// Such-URL ist und nicht manuell durch einen eigenen Link ersetzt wurde.
+function isAutoSearchUrl(url: string | null): boolean {
+  return !url || url.startsWith("https://www.google.com/search?q=");
+}
 
 function beadFieldsFromFormData(formData: FormData) {
   return {
@@ -48,11 +58,16 @@ export async function createBead(formData: FormData) {
   }
 
   const supabase = createSupabaseServerClient();
+  const fields = beadFieldsFromFormData(formData);
+  if (!fields.source_url) {
+    fields.source_url = productSearchUrl(articleNumber, fields.source_shop);
+  }
+
   const { error } = await supabase.from("beads").insert({
     id,
     article_number: articleNumber,
     image_url: imageUrl,
-    ...beadFieldsFromFormData(formData),
+    ...fields,
   });
 
   if (error) {
@@ -86,12 +101,26 @@ export async function updateBead(id: string, formData: FormData) {
   }
 
   const supabase = createSupabaseServerClient();
+  const { data: existing } = await supabase
+    .from("beads")
+    .select("source_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  const fields = beadFieldsFromFormData(formData);
+  if (
+    isAutoSearchUrl(existing?.source_url ?? null) &&
+    fields.source_url === (existing?.source_url ?? null)
+  ) {
+    fields.source_url = productSearchUrl(articleNumber, fields.source_shop);
+  }
+
   const { error } = await supabase
     .from("beads")
     .update({
       article_number: articleNumber,
       ...(imageUrl !== undefined ? { image_url: imageUrl } : {}),
-      ...beadFieldsFromFormData(formData),
+      ...fields,
     })
     .eq("id", id);
 
