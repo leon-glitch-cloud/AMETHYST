@@ -32,7 +32,7 @@ export async function createSaleTransaction({
     .insert({
       date: new Date().toISOString().slice(0, 10),
       type: "sale",
-      description: `Verkauf: ${braceletName}`,
+      description: `${isGift ? "Geschenk" : "Verkauf"}: ${braceletName}`,
       amount: price,
       bracelet_id: braceletId,
       counterparty_name: buyerName,

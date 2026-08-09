@@ -10,6 +10,7 @@ type OrderDetail = {
   id: string;
   customer_name: string;
   wish_text: string | null;
+  notes: string | null;
   status: "open" | "done" | "cancelled";
   bracelet: { id: string; name: string } | null;
 };
@@ -25,7 +26,9 @@ async function getOrder(id: string): Promise<OrderDetail | null> {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("orders")
-      .select("id, customer_name, wish_text, status, bracelet:bracelets(id, name)")
+      .select(
+        "id, customer_name, wish_text, notes, status, bracelet:bracelets(id, name)"
+      )
       .eq("id", id)
       .maybeSingle();
     if (error || !data) return null;
@@ -57,9 +60,19 @@ export default async function OrderDetailPage({
     <main className="mx-auto min-h-screen max-w-lg px-4 py-12">
       <BackLink href="/" />
 
-      <h1 className="mb-1 text-2xl font-medium text-gray-900">
-        {order.customer_name}
-      </h1>
+      <div className="mb-1 flex items-start justify-between gap-4">
+        <h1 className="text-2xl font-medium text-gray-900">
+          {order.customer_name}
+        </h1>
+        {order.status === "open" && (
+          <Link
+            href={`/orders/${id}/edit`}
+            className="shrink-0 text-sm text-gray-600 underline underline-offset-4 hover:text-gray-900"
+          >
+            Bearbeiten
+          </Link>
+        )}
+      </div>
       <p className="mb-6 text-sm text-gray-500">
         {order.bracelet ? (
           <>
@@ -82,6 +95,12 @@ export default async function OrderDetailPage({
           {statusLabels[order.status]}
         </span>
       </p>
+
+      {order.notes && (
+        <p className="mb-6 whitespace-pre-wrap text-sm text-gray-600">
+          {order.notes}
+        </p>
+      )}
 
       {error && <p className="mb-6 text-sm text-gray-500">{error}</p>}
 

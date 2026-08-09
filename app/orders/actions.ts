@@ -14,6 +14,7 @@ export async function createOrder(formData: FormData) {
 
   const braceletId = parseText(formData.get("bracelet_id"));
   const wishText = parseText(formData.get("wish_text"));
+  const notes = parseText(formData.get("notes"));
 
   if ((braceletId && wishText) || (!braceletId && !wishText)) {
     redirect(
@@ -28,6 +29,7 @@ export async function createOrder(formData: FormData) {
     customer_name: customerName,
     bracelet_id: braceletId,
     wish_text: wishText,
+    notes,
     status: "open",
   });
 
@@ -39,6 +41,49 @@ export async function createOrder(formData: FormData) {
 
   revalidatePath("/");
   redirect("/");
+}
+
+export async function updateOrder(orderId: string, formData: FormData) {
+  const customerName = parseText(formData.get("customer_name"));
+  if (!customerName) {
+    redirect(
+      `/orders/${orderId}/edit?error=${encodeURIComponent("Name ist erforderlich")}`
+    );
+  }
+
+  const braceletId = parseText(formData.get("bracelet_id"));
+  const wishText = parseText(formData.get("wish_text"));
+  const notes = parseText(formData.get("notes"));
+
+  if ((braceletId && wishText) || (!braceletId && !wishText)) {
+    redirect(
+      `/orders/${orderId}/edit?error=${encodeURIComponent(
+        "Entweder ein Modell wählen oder einen Wunsch-Text eintragen, nicht beides oder keins"
+      )}`
+    );
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      customer_name: customerName,
+      bracelet_id: braceletId,
+      wish_text: wishText,
+      notes,
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    redirect(
+      `/orders/${orderId}/edit?error=${encodeURIComponent(
+        "Bestellung konnte nicht gespeichert werden"
+      )}`
+    );
+  }
+
+  revalidatePath("/");
+  redirect(`/orders/${orderId}`);
 }
 
 export async function completeOrder(orderId: string, formData: FormData) {

@@ -100,6 +100,7 @@ create table if not exists orders (
   customer_name text not null,
   bracelet_id uuid references bracelets (id) on delete set null,
   wish_text text,
+  notes text,
   status text not null default 'open' check (status in ('open', 'done', 'cancelled')),
   sale_id uuid references sales (id) on delete set null,
   created_at timestamptz not null default now(),
@@ -117,6 +118,9 @@ create table if not exists material_orders (
   status text not null default 'pending' check (status in ('pending', 'confirmed')),
   created_at timestamptz not null default now()
 );
+
+-- Falls orders schon existiert: notes ergänzen (no-op bei frischem Setup).
+alter table orders add column if not exists notes text;
 
 -- Falls beads schon existiert: name + material ergänzen (no-op bei frischem Setup).
 alter table beads add column if not exists name text;
