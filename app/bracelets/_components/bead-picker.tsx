@@ -2,6 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useState } from "react";
 import Image from "next/image";
+import { BeadPickerModal } from "@/app/bracelets/_components/bead-picker-modal";
 
 export type BeadOption = {
   id: string;
@@ -40,6 +41,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
   allBeads: BeadOption[];
   initialItems?: BeadItem[];
 }>(function BeadPicker({ allBeads, initialItems = [] }, ref) {
+  const [openRowKey, setOpenRowKey] = useState<string | null>(null);
   const [rows, setRows] = useState<
     {
       key: string;
@@ -125,50 +127,39 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
             const selectedBead = beadsById.get(row.beadId);
             return (
             <div key={row.key} className="flex items-center gap-2">
-              {selectedBead?.image_url && (
-                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-gray-100">
-                  <Image
-                    src={selectedBead.image_url}
-                    alt={selectedBead.article_number}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              )}
-              <select
-                name="bead_id"
-                value={row.beadId}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  updateRow(row.key, {
-                    beadId: value,
-                    ...(value ? { unknownDescription: null } : {}),
-                  });
-                }}
-                className={`min-w-0 flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:border-gray-500 ${
-                  row.beadId
-                    ? "border-gray-300 text-gray-900"
-                    : "border-amber-300 text-amber-700"
-                }`}
-              >
-                {!row.beadId && (
-                  <option value="">
-                    {row.unknownDescription
-                      ? `Unbekannt: ${row.unknownDescription}`
-                      : "— Perle wählen —"}
-                  </option>
-                )}
-                {allBeads.map((bead) => (
-                  <option key={bead.id} value={bead.id}>
-                    {beadLabel(bead)}
-                  </option>
-                ))}
-              </select>
+              <input type="hidden" name="bead_id" value={row.beadId} />
               <input
                 type="hidden"
                 name="unknown_description"
                 value={row.unknownDescription ?? ""}
               />
+              <button
+                type="button"
+                onClick={() => setOpenRowKey(row.key)}
+                className={`flex min-w-0 flex-1 items-center gap-2 rounded-md border px-2 py-1.5 text-left text-sm outline-none transition hover:bg-gray-50 ${
+                  row.beadId
+                    ? "border-gray-300 text-gray-900"
+                    : "border-amber-300 text-amber-700"
+                }`}
+              >
+                <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-gray-100">
+                  {selectedBead?.image_url ? (
+                    <Image
+                      src={selectedBead.image_url}
+                      alt={selectedBead.article_number}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : null}
+                </div>
+                <span className="min-w-0 truncate">
+                  {selectedBead
+                    ? beadLabel(selectedBead)
+                    : row.unknownDescription
+                      ? `Unbekannt: ${row.unknownDescription}`
+                      : "— Perle wählen —"}
+                </span>
+              </button>
               <input
                 name="quantity"
                 type="number"
@@ -207,14 +198,25 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
       {unresolvedCount > 0 && (
         <p className="mt-2 text-sm text-amber-600">
           {unresolvedCount} unbekannte Perle
-          {unresolvedCount === 1 ? "" : "n"} noch nicht zugeordnet — bitte im
-          Dropdown auswählen, sobald sie im Materialbestand erfasst ist.
+          {unresolvedCount === 1 ? "" : "n"} noch nicht zugeordnet — bitte
+          auswählen, sobald sie im Materialbestand erfasst ist.
         </p>
       )}
 
       <p className="mt-2 text-sm text-gray-500">
         Materialkosten: {currencyFormatter.format(total)}
       </p>
+
+      {openRowKey && (
+        <BeadPickerModal
+          allBeads={allBeads}
+          onClose={() => setOpenRowKey(null)}
+          onSelect={(beadId) => {
+            updateRow(openRowKey, { beadId, unknownDescription: null });
+            setOpenRowKey(null);
+          }}
+        />
+      )}
     </div>
   );
 });
