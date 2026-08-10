@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createBracelet } from "@/app/bracelets/actions";
-import { Field } from "@/app/beads/_components/field";
-import { FileUploadField } from "@/app/_components/file-upload-field";
+import { BraceletBasicsFields } from "@/app/bracelets/_components/bracelet-basics-fields";
 import { BackLink } from "@/app/_components/back-link";
 import { SubmitButton } from "@/app/_components/submit-button";
 
@@ -21,15 +20,7 @@ export default async function NewBraceletPage({
       </h1>
 
       <form action={createBracelet} className="space-y-4">
-        <Field label="Name" name="name" required />
-
-        <FileUploadField
-          id="photo"
-          name="photo"
-          label="Foto"
-          buttonLabel="Foto hinzufügen"
-          accept="image/*"
-        />
+        <BraceletBasicsFields />
 
         <label className="flex items-center gap-2 text-sm text-gray-600">
           <input type="checkbox" name="auto_detect_beads" value="yes" />

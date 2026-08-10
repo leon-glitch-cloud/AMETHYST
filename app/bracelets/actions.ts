@@ -154,6 +154,88 @@ export async function createBracelet(formData: FormData) {
   );
 }
 
+type SuggestBraceletNameResult =
+  | { ok: true; name: string }
+  | { ok: false; message: string };
+
+const BRACELET_NAME_SCHEMA = {
+  type: "object",
+  properties: {
+    name: {
+      type: "string",
+      description:
+        'Kurzer, einprägsamer deutscher Produktname für das Armband, basierend auf Farben/Stil des Fotos (z. B. "Orange-Blau" oder ein passendes Stimmungswort). Maximal 3-4 Wörter, keine Anführungszeichen, das Wort "Armband" nicht mit einschließen.',
+    },
+  },
+  required: ["name"],
+  additionalProperties: false,
+} as const;
+
+export async function suggestBraceletNameFromPhoto(
+  formData: FormData
+): Promise<SuggestBraceletNameResult> {
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    return { ok: false, message: "Bitte zuerst ein Foto auswählen" };
+  }
+
+  try {
+    const resizedBytes = await sharp(Buffer.from(await photo.arrayBuffer()))
+      .resize({ width: 1024, height: 1024, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+    const base64 = resizedBytes.toString("base64");
+
+    const client = createClaudeClient();
+    const response = await client.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 256,
+      thinking: { type: "disabled" },
+      output_config: {
+        format: { type: "json_schema", schema: BRACELET_NAME_SCHEMA },
+      },
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Hier ist das Foto eines handgefertigten Perlenarmbands. Schlage einen kurzen, einprägsamen Produktnamen auf Deutsch vor, der zu Farben/Stil des Armbands passt. Antworte ausschließlich mit dem geforderten JSON.",
+            },
+            {
+              type: "image",
+              source: { type: "base64", media_type: "image/jpeg", data: base64 },
+            },
+          ],
+        },
+      ],
+    });
+
+    if (response.stop_reason === "refusal") {
+      return {
+        ok: false,
+        message: "Die KI konnte keinen Namen vorschlagen (abgelehnt)",
+      };
+    }
+
+    const textBlock = response.content.find((block) => block.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      return { ok: false, message: "Keine Antwort von der KI erhalten" };
+    }
+
+    const parsed = JSON.parse(textBlock.text) as { name: string };
+    const name = parsed.name?.trim();
+    if (!name) {
+      return { ok: false, message: "Kein Name erhalten" };
+    }
+
+    return { ok: true, name };
+  } catch (err) {
+    logClaudeError("suggestBraceletNameFromPhoto", err);
+    return { ok: false, message: "Namensvorschlag ist fehlgeschlagen" };
+  }
+}
+
 export async function updateBracelet(id: string, formData: FormData) {
   const name = parseText(formData.get("name"));
   if (!name) {
