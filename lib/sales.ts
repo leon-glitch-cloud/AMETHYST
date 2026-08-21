@@ -18,12 +18,14 @@ export async function createSaleTransaction({
   buyerName,
   price,
   isGift,
+  person,
 }: {
   braceletId: string | null;
   braceletName: string;
   buyerName: string;
   price: number;
   isGift: boolean;
+  person?: string | null;
 }): Promise<CreateSaleResult> {
   const supabase = createSupabaseServerClient();
 
@@ -36,6 +38,7 @@ export async function createSaleTransaction({
       amount: price,
       bracelet_id: braceletId,
       counterparty_name: buyerName,
+      person: person ?? null,
     })
     .select("id")
     .single();

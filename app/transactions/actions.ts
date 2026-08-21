@@ -22,6 +22,7 @@ export async function createBooking(formData: FormData) {
 
   const date = parseText(formData.get("date")) ?? new Date().toISOString().slice(0, 10);
   const isIncome = formData.get("booking_type") === "income";
+  const person = parseText(formData.get("person"));
 
   const supabase = createSupabaseServerClient();
   // "refund" ist technisch der Typ, deckt inhaltlich aber jede manuell
@@ -31,6 +32,7 @@ export async function createBooking(formData: FormData) {
     type: isIncome ? "refund" : "expense",
     description,
     amount: isIncome ? Math.abs(amount) : -Math.abs(amount),
+    person,
   });
 
   if (error) {

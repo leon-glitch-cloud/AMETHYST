@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { completeOrder, cancelOrder } from "@/app/orders/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
+import { PersonSelect } from "@/app/_components/person-select";
 import { BackLink } from "@/app/_components/back-link";
 import { SubmitButton } from "@/app/_components/submit-button";
 
@@ -128,6 +129,7 @@ export default async function OrderDetailPage({
                   placeholder="Preis (€)"
                   className="w-32 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
                 />
+                <PersonSelect id="complete_order_person" />
               </div>
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-sm text-gray-600">

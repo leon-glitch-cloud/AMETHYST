@@ -7,6 +7,7 @@ import {
 } from "@/app/transactions/_components/transaction-filter-list";
 import { BackLink } from "@/app/_components/back-link";
 import { SubmitButton } from "@/app/_components/submit-button";
+import { PersonSelect } from "@/app/_components/person-select";
 
 async function getTransactions(): Promise<Transaction[]> {
   try {
@@ -14,7 +15,7 @@ async function getTransactions(): Promise<Transaction[]> {
     const { data, error } = await supabase
       .from("transactions")
       .select(
-        "id, date, type, description, amount, counterparty_name, bracelet_id, sales(is_gift)"
+        "id, date, type, description, amount, counterparty_name, bracelet_id, person, sales(is_gift)"
       )
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
@@ -33,6 +34,7 @@ async function getTransactions(): Promise<Transaction[]> {
         counterparty_name: row.counterparty_name,
         is_gift: isGift,
         bracelet_id: row.bracelet_id,
+        person: row.person,
       };
     });
   } catch {
@@ -97,6 +99,15 @@ export default async function TransactionsPage({
               <option value="expense">Ausgabe</option>
               <option value="income">Einnahme</option>
             </select>
+          </div>
+          <div>
+            <label
+              className="mb-1 block text-sm text-gray-600"
+              htmlFor="person"
+            >
+              Von
+            </label>
+            <PersonSelect id="person" />
           </div>
           <div className="w-32">
             <label

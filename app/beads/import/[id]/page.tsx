@@ -6,6 +6,7 @@ import {
   MaterialOrderItemsEditor,
   type MaterialOrderItem,
 } from "@/app/beads/import/_components/material-order-items-editor";
+import { BookExpenseToggle } from "@/app/beads/import/_components/book-expense-toggle";
 import { BackLink } from "@/app/_components/back-link";
 import { SubmitButton } from "@/app/_components/submit-button";
 
@@ -86,10 +87,7 @@ export default async function MaterialOrderReviewPage({
           originalImageUrl={originalImageUrl}
         />
 
-        <label className="flex items-center gap-2 text-sm text-gray-600">
-          <input type="checkbox" name="book_expense" value="yes" />
-          Als Materialausgabe im Verlauf buchen
-        </label>
+        <BookExpenseToggle />
 
         {error && <p className="text-sm text-gray-500">{error}</p>}
 

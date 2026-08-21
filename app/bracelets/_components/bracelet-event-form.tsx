@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubmitButton } from "@/app/_components/submit-button";
+import { PersonSelect } from "@/app/_components/person-select";
 
 export function BraceletEventForm({
   action,
@@ -57,6 +58,7 @@ export function BraceletEventForm({
           className="w-28 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
         />
       )}
+      {eventType !== "loaned" && <PersonSelect id="event_person" />}
       <SubmitButton pendingLabel="Speichert…">Speichern</SubmitButton>
     </form>
   );

@@ -431,6 +431,7 @@ export async function confirmMaterialOrder(
           rows.length === 1 ? "" : "en"
         })`,
         amount: -Math.abs(total),
+        person: parseText(formData.get("person")),
       });
 
     if (transactionError) {

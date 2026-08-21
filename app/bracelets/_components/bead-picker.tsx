@@ -47,6 +47,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
       key: string;
       beadId: string;
       quantity: number;
+      quantityInput: string;
       unknownDescription: string | null;
     }[]
   >(() =>
@@ -54,6 +55,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
       key: crypto.randomUUID(),
       beadId: item.bead_id ?? "",
       quantity: item.quantity,
+      quantityInput: String(item.quantity),
       unknownDescription: item.unknown_description ?? null,
     }))
   );
@@ -65,6 +67,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
           key: crypto.randomUUID(),
           beadId: item.bead_id ?? "",
           quantity: item.quantity,
+          quantityInput: String(item.quantity),
           unknownDescription: item.unknown_description ?? null,
         }))
       );
@@ -89,6 +92,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
         key: crypto.randomUUID(),
         beadId: allBeads[0].id,
         quantity: 1,
+        quantityInput: "1",
         unknownDescription: null,
       },
     ]);
@@ -103,6 +107,7 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
     patch: Partial<{
       beadId: string;
       quantity: number;
+      quantityInput: string;
       unknownDescription: string | null;
     }>
   ) {
@@ -160,17 +165,27 @@ export const BeadPicker = forwardRef<BeadPickerHandle, {
                       : "— Perle wählen —"}
                 </span>
               </button>
+              <input type="hidden" name="quantity" value={row.quantity} />
               <input
-                name="quantity"
                 type="number"
                 min={1}
                 step={1}
-                value={row.quantity}
-                onChange={(event) =>
+                value={row.quantityInput}
+                onChange={(event) => {
+                  const text = event.target.value;
+                  const parsed = Number(text);
                   updateRow(row.key, {
-                    quantity: Number(event.target.value) || 1,
-                  })
-                }
+                    quantityInput: text,
+                    ...(text !== "" && Number.isFinite(parsed) && parsed > 0
+                      ? { quantity: Math.floor(parsed) }
+                      : {}),
+                  });
+                }}
+                onBlur={() => {
+                  if (!row.quantityInput || Number(row.quantityInput) <= 0) {
+                    updateRow(row.key, { quantityInput: String(row.quantity) });
+                  }
+                }}
                 className="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-500"
               />
               <button

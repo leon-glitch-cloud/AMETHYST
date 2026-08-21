@@ -96,6 +96,7 @@ export async function completeOrder(orderId: string, formData: FormData) {
 
   const isGift = formData.get("is_gift") === "yes";
   const price = isGift ? 0 : (parseNumber(formData.get("price")) ?? 0);
+  const person = parseText(formData.get("person"));
 
   const supabase = createSupabaseServerClient();
   const { data: order } = await supabase
@@ -121,6 +122,7 @@ export async function completeOrder(orderId: string, formData: FormData) {
     buyerName,
     price,
     isGift,
+    person,
   });
 
   if (!result.ok) {

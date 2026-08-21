@@ -13,6 +13,7 @@ export type Transaction = {
   counterparty_name: string | null;
   is_gift: boolean;
   bracelet_id: string | null;
+  person: string | null;
 };
 
 type DisplayType = "expense" | "sale" | "refund" | "gift";
@@ -82,6 +83,19 @@ export function TransactionFilterList({
     0
   );
 
+  const personTotals = useMemo(() => {
+    const totals = new Map<string, { income: number; expense: number }>();
+    filtered.forEach((tx) => {
+      if (!tx.person) return;
+      const entry = totals.get(tx.person) ?? { income: 0, expense: 0 };
+      const amount = Number(tx.amount);
+      if (amount > 0) entry.income += amount;
+      else entry.expense += amount;
+      totals.set(tx.person, entry);
+    });
+    return Array.from(totals.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-4 text-sm">
@@ -121,6 +135,17 @@ export function TransactionFilterList({
         <span>Ausgaben: {currencyFormatter.format(expense)}</span>
       </div>
 
+      {personTotals.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-6 text-xs text-gray-400">
+          {personTotals.map(([person, totals]) => (
+            <span key={person}>
+              {person}: {currencyFormatter.format(totals.income)} Einnahmen ·{" "}
+              {currencyFormatter.format(totals.expense)} Ausgaben
+            </span>
+          ))}
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500">
           Keine Buchungen gefunden.
@@ -144,6 +169,7 @@ export function TransactionFilterList({
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatDate(tx.date)} · {typeLabels[displayType(tx)]}
+                    {tx.person ? ` · ${tx.person}` : ""}
                   </p>
                 </Link>
               ) : (
@@ -154,6 +180,7 @@ export function TransactionFilterList({
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatDate(tx.date)} · {typeLabels[displayType(tx)]}
+                    {tx.person ? ` · ${tx.person}` : ""}
                   </p>
                 </div>
               )}

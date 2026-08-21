@@ -63,6 +63,7 @@ create table if not exists transactions (
   amount numeric not null,
   bracelet_id uuid references bracelets (id) on delete set null,
   counterparty_name text,
+  person text,
   created_at timestamptz not null default now()
 );
 
@@ -121,6 +122,12 @@ create table if not exists material_orders (
 
 -- Falls orders schon existiert: notes ergänzen (no-op bei frischem Setup).
 alter table orders add column if not exists notes text;
+
+-- Falls transactions schon existiert: person ergänzen (no-op bei frischem Setup).
+alter table transactions add column if not exists person text;
+
+-- Einmaliger Backfill: alle bisherigen Buchungen ohne Person waren von Carlos.
+update transactions set person = 'Carlos' where person is null;
 
 -- Falls beads schon existiert: name + material ergänzen (no-op bei frischem Setup).
 alter table beads add column if not exists name text;

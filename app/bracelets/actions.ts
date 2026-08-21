@@ -569,6 +569,7 @@ export async function recordBraceletEvent(
 
   const isGift = eventType === "gift";
   const price = isGift ? 0 : (parseNumber(formData.get("price")) ?? 0);
+  const person = parseText(formData.get("person"));
 
   const { data: bracelet } = await supabase
     .from("bracelets")
@@ -582,6 +583,7 @@ export async function recordBraceletEvent(
     buyerName: personName,
     price,
     isGift,
+    person,
   });
 
   if (!result.ok) {
