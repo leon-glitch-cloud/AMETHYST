@@ -1,6 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const BRACELET_SIZES = ["S", "M", "L"] as const;
+import { BRACELET_SIZES } from "@/lib/bracelet-sizes";
 
 export type BraceletModelOption = {
   key: string;
@@ -54,7 +53,7 @@ export async function getBraceletModels(): Promise<BraceletModelOption[]> {
 // Bestellung für ein Modell/eine Größe erfasst wurde, die es im
 // Armbandbestand noch nicht gibt.
 const AUTO_WISH_TEXT_PATTERN =
-  /^(.+) \(Größe (S|M|L), (?:Modell )?noch nicht angelegt\)$/;
+  /^(.+) \(Größe (XS|S|M|L|XL), (?:Modell )?noch nicht angelegt\)$/;
 
 export function parseAutoWishText(
   wishText: string

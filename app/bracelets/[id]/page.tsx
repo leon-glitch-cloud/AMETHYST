@@ -10,13 +10,13 @@ import {
   deleteSale,
   deleteBracelet,
   addBraceletSizeVariant,
+  deleteSizeVariant,
 } from "@/app/bracelets/actions";
 import { ConfirmFormButton } from "@/app/_components/confirm-form-button";
 import { BackLink } from "@/app/_components/back-link";
 import { SubmitButton } from "@/app/_components/submit-button";
 import { BraceletEventForm } from "@/app/bracelets/_components/bracelet-event-form";
-
-const BRACELET_SIZES = ["S", "M", "L"] as const;
+import { BRACELET_SIZES } from "@/lib/bracelet-sizes";
 
 type Bracelet = {
   id: string;
@@ -316,19 +316,28 @@ export default async function BraceletDetailPage({
       <BackLink href={backHref} />
 
       {sizeVariants.length > 1 && (
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           {sizeVariants.map((variant) => (
-            <Link
-              key={variant.id}
-              href={`/bracelets/${variant.id}`}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                variant.id === id
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {variant.size ?? "?"}
-            </Link>
+            <div key={variant.id} className="flex items-center gap-1">
+              <Link
+                href={`/bracelets/${variant.id}`}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                  variant.id === id
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {variant.size ?? "?"}
+              </Link>
+              <ConfirmFormButton
+                action={deleteSizeVariant.bind(null, variant.id, id)}
+                label="×"
+                confirmMessage={`Größe ${
+                  variant.size ?? "?"
+                } wirklich löschen? Foto, Perlenliste und Verkaufshistorie dieser Größe gehen dabei verloren.`}
+                className="px-1 text-sm text-gray-400 hover:text-red-600"
+              />
+            </div>
           ))}
         </div>
       )}

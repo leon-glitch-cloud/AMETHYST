@@ -59,19 +59,19 @@ export function BeadPickerModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {filteredBeads.length === 0 ? (
             <p className="py-8 text-center text-sm text-gray-500">
               Keine Perlen gefunden.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid auto-rows-fr grid-cols-2 content-start gap-3 sm:grid-cols-3">
               {filteredBeads.map((bead) => (
                 <button
                   key={bead.id}
                   type="button"
                   onClick={() => onSelect(bead.id)}
-                  className="flex flex-col items-center gap-1.5 rounded-md border border-gray-200 p-2 text-center transition hover:border-gray-400 hover:bg-gray-50"
+                  className="flex min-h-[104px] flex-col items-center gap-1.5 rounded-md border border-gray-200 p-2 text-center transition hover:border-gray-400 hover:bg-gray-50"
                 >
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-gray-100">
                     {bead.image_url ? (

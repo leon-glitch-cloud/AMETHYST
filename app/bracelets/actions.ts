@@ -8,6 +8,7 @@ import { uploadPublicImage } from "@/lib/supabase/storage";
 import { parseNumber, parseText } from "@/lib/forms";
 import { createSaleTransaction } from "@/lib/sales";
 import { createClaudeClient, logClaudeError, toImageMediaType } from "@/lib/claude";
+import { BRACELET_SIZES } from "@/lib/bracelet-sizes";
 
 function parseBeadItems(
   formData: FormData
@@ -380,7 +381,6 @@ export async function deleteBracelet(id: string) {
   redirect("/bracelets");
 }
 
-const BRACELET_SIZES = ["S", "M", "L"] as const;
 type BraceletSize = (typeof BRACELET_SIZES)[number];
 
 function isBraceletSize(value: unknown): value is BraceletSize {
@@ -500,6 +500,45 @@ export async function addBraceletSizeVariant(
 
   revalidatePath("/bracelets");
   redirect(`/bracelets/${newId}`);
+}
+
+export async function deleteSizeVariant(variantId: string, currentViewId: string) {
+  const supabase = createSupabaseServerClient();
+
+  const { data: variant } = await supabase
+    .from("bracelets")
+    .select("variant_group_id")
+    .eq("id", variantId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("bracelets").delete().eq("id", variantId);
+
+  if (error) {
+    redirect(
+      `/bracelets/${currentViewId}?error=${encodeURIComponent(
+        "Größe konnte nicht gelöscht werden"
+      )}`
+    );
+  }
+
+  revalidatePath("/bracelets");
+
+  if (variantId !== currentViewId) {
+    redirect(`/bracelets/${currentViewId}`);
+  }
+
+  if (variant?.variant_group_id) {
+    const { data: siblings } = await supabase
+      .from("bracelets")
+      .select("id")
+      .eq("variant_group_id", variant.variant_group_id)
+      .limit(1);
+    if (siblings && siblings.length > 0) {
+      redirect(`/bracelets/${siblings[0].id}`);
+    }
+  }
+
+  redirect("/bracelets");
 }
 
 export async function returnLoan(loanId: string, braceletId: string) {

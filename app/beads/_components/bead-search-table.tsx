@@ -13,6 +13,7 @@ export type Bead = {
   size_mm: number | string | null;
   color: string | null;
   unit_price: number | string | null;
+  source_shop: string | null;
 };
 
 const currencyFormatter = new Intl.NumberFormat("de-DE", {
@@ -34,6 +35,7 @@ export function BeadSearchTable({ beads }: { beads: Bead[] }) {
         (bead.name ?? "").toLowerCase().includes(q) ||
         (bead.material ?? "").toLowerCase().includes(q) ||
         (bead.color ?? "").toLowerCase().includes(q) ||
+        (bead.source_shop ?? "").toLowerCase().includes(q) ||
         size.includes(q)
       );
     });
@@ -45,7 +47,7 @@ export function BeadSearchTable({ beads }: { beads: Bead[] }) {
         type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Suche nach Nummer, Name, Material, Farbe, Größe…"
+        placeholder="Suche nach Nummer, Name, Material, Farbe, Größe, Shop…"
         className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 outline-none focus:border-gray-500"
       />
 

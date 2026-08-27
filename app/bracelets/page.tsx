@@ -2,8 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BackLink } from "@/app/_components/back-link";
-
-const BRACELET_SIZES = ["S", "M", "L"] as const;
+import { BRACELET_SIZES } from "@/lib/bracelet-sizes";
 
 type Bracelet = {
   id: string;

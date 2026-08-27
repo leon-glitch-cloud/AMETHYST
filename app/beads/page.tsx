@@ -9,7 +9,7 @@ async function getBeads(): Promise<Bead[]> {
     const { data, error } = await supabase
       .from("beads")
       .select(
-        "id, article_number, name, material, image_url, size_mm, color, unit_price"
+        "id, article_number, name, material, image_url, size_mm, color, unit_price, source_shop"
       )
       .order("article_number", { ascending: true });
     if (error || !data) return [];

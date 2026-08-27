@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { BraceletModelOption } from "@/lib/bracelet-models";
+import { BRACELET_SIZES } from "@/lib/bracelet-sizes";
 
-const BRACELET_SIZES = ["S", "M", "L"] as const;
 export const NEW_MODEL_KEY = "__new__";
 
 export function OrderModelPicker({

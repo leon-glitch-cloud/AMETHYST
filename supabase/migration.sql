@@ -25,17 +25,18 @@ create table if not exists beads (
   created_at timestamptz not null default now()
 );
 
--- Armband-Modelle. size + variant_group_id bilden Größen-Varianten (S/M/L)
--- desselben Modells ab: jede Größe ist eine vollständige eigene Zeile (mit
--- eigenem Foto, eigener Perlenliste, eigenem Bestand/Verkäufen), mehrere
--- Zeilen mit derselben variant_group_id gehören zusammen.
+-- Armband-Modelle. size + variant_group_id bilden Größen-Varianten
+-- (XS/S/M/L/XL) desselben Modells ab: jede Größe ist eine vollständige
+-- eigene Zeile (mit eigenem Foto, eigener Perlenliste, eigenem
+-- Bestand/Verkäufen), mehrere Zeilen mit derselben variant_group_id
+-- gehören zusammen.
 create table if not exists bracelets (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   photo_url text,
   made_count integer not null default 0,
   notes text,
-  size text check (size in ('S', 'M', 'L')),
+  size text check (size in ('XS', 'S', 'M', 'L', 'XL')),
   variant_group_id uuid,
   created_at timestamptz not null default now()
 );
@@ -159,11 +160,11 @@ alter table beads add column if not exists unit_price numeric
 drop table if exists bead_return_items;
 drop table if exists bead_returns;
 
--- Falls bracelets schon existiert: Größen-Varianten (S/M/L) ergänzen
+-- Falls bracelets schon existiert: Größen-Varianten (XS/S/M/L/XL) ergänzen
 -- (no-op bei frischem Setup).
 alter table bracelets add column if not exists size text;
 alter table bracelets drop constraint if exists bracelets_size_check;
-alter table bracelets add constraint bracelets_size_check check (size in ('S', 'M', 'L'));
+alter table bracelets add constraint bracelets_size_check check (size in ('XS', 'S', 'M', 'L', 'XL'));
 alter table bracelets add column if not exists variant_group_id uuid;
 
 create index if not exists bracelet_beads_bracelet_id_idx on bracelet_beads (bracelet_id);
