@@ -547,6 +547,9 @@ export default async function BraceletDetailPage({
                         ) : null}
                       </div>
                     )}
+                    <span className="shrink-0 text-sm text-gray-500">
+                      {row.quantity}×
+                    </span>
                     <span
                       className={`truncate ${row.bead ? "text-gray-900" : "text-amber-600"}`}
                     >
@@ -558,8 +561,7 @@ export default async function BraceletDetailPage({
                             row.unknown_description
                               ? ` (${row.unknown_description})`
                               : ""
-                          }`}{" "}
-                      × {row.quantity}
+                          }`}
                     </span>
                   </div>
                   <span className="shrink-0 text-gray-500">
