@@ -28,17 +28,23 @@ type Counts = {
   loaned: Map<string, number>;
 };
 
-async function getBracelets(): Promise<Bracelet[]> {
+async function getBracelets(): Promise<{
+  bracelets: Bracelet[];
+  debugError: string | null;
+}> {
   try {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("bracelets")
       .select("id, name, photo_url, made_count, size, variant_group_id")
       .order("name", { ascending: true });
-    if (error || !data) return [];
-    return data;
-  } catch {
-    return [];
+    if (error) return { bracelets: [], debugError: error.message };
+    return { bracelets: data ?? [], debugError: null };
+  } catch (err) {
+    return {
+      bracelets: [],
+      debugError: err instanceof Error ? err.message : "Unbekannter Fehler",
+    };
   }
 }
 
@@ -109,7 +115,7 @@ async function getCounts(): Promise<Counts> {
 }
 
 export default async function BraceletsPage() {
-  const [bracelets, counts] = await Promise.all([
+  const [{ bracelets, debugError }, counts] = await Promise.all([
     getBracelets(),
     getCounts(),
   ]);
@@ -129,6 +135,12 @@ export default async function BraceletsPage() {
           + Neues Armband
         </Link>
       </div>
+
+      {debugError && (
+        <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+          Debug-Fehler beim Laden: {debugError}
+        </p>
+      )}
 
       {cards.length === 0 ? (
         <p className="py-8 text-center text-sm text-gray-500">
