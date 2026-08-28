@@ -1,7 +1,8 @@
 export function productSearchUrl(
   articleNumber: string,
-  shop?: string | null
+  shop?: string | null,
+  name?: string | null
 ): string {
-  const query = shop ? `${shop} "${articleNumber}"` : `"${articleNumber}"`;
+  const query = [shop, name, `"${articleNumber}"`].filter(Boolean).join(" ");
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }

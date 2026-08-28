@@ -401,7 +401,8 @@ export async function confirmMaterialOrder(
             : {
                 source_url: productSearchUrl(
                   row.article_number,
-                  row.source_shop
+                  row.source_shop,
+                  row.name
                 ),
               }),
         })
@@ -417,7 +418,7 @@ export async function confirmMaterialOrder(
         package_price: row.package_price ?? 0,
         package_quantity: row.package_quantity,
         source_shop: row.source_shop,
-        source_url: productSearchUrl(row.article_number, row.source_shop),
+        source_url: productSearchUrl(row.article_number, row.source_shop, row.name),
         image_url: row.image_url,
       });
     }

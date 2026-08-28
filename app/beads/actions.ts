@@ -60,7 +60,7 @@ export async function createBead(formData: FormData) {
   const supabase = createSupabaseServerClient();
   const fields = beadFieldsFromFormData(formData);
   if (!fields.source_url) {
-    fields.source_url = productSearchUrl(articleNumber, fields.source_shop);
+    fields.source_url = productSearchUrl(articleNumber, fields.source_shop, fields.name);
   }
 
   const { error } = await supabase.from("beads").insert({
@@ -112,7 +112,7 @@ export async function updateBead(id: string, formData: FormData) {
     isAutoSearchUrl(existing?.source_url ?? null) &&
     fields.source_url === (existing?.source_url ?? null)
   ) {
-    fields.source_url = productSearchUrl(articleNumber, fields.source_shop);
+    fields.source_url = productSearchUrl(articleNumber, fields.source_shop, fields.name);
   }
 
   const { error } = await supabase

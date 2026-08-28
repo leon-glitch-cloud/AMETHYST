@@ -286,7 +286,8 @@ export function MaterialOrderItemsEditor({
                 <ProductSearchButton
                   url={productSearchUrl(
                     row.articleNumber.trim(),
-                    row.shop.trim() || null
+                    row.shop.trim() || null,
+                    row.name.trim() || null
                   )}
                   shop={row.shop.trim() || null}
                 />
